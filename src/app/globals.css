@@ -422,12 +422,19 @@ body {
   flex: 1 1 auto;
   justify-content: center;
   min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.nav-pill-group::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-link-pill {
-  padding: 10px 24px;
+  padding: 10px 20px;
   border-radius: var(--radius-pill);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 800;
   font-size: 13px;
   text-decoration: none;
@@ -436,6 +443,7 @@ body {
   align-items: center;
   gap: 10px;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .nav-link-pill:hover {

@@ -4,14 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import { 
-  Bell, 
   Info, 
   AlertTriangle, 
   CheckCircle2, 
-  X, 
   Trash2, 
-  Mail, 
-  MessageSquare,
   Clock,
   Loader2,
   Inbox
@@ -33,6 +29,7 @@ function getAuthHeaders() {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'OPERATIONAL'>('ALL');
   const router = useRouter();
 
   useEffect(() => {
@@ -73,9 +70,40 @@ export default function NotificationsPage() {
     } catch (err) { console.error(err); }
   };
 
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/dashboard', {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ resource: 'notifications', data: { action: 'markAllRead' } })
+      });
+      fetchNotifications();
+    } catch (err) { console.error(err); }
+  };
+
+  const clearAll = async () => {
+    if (!confirm('¿Deseas eliminar todas las notificaciones?')) return;
+    try {
+      await fetch('/api/dashboard?resource=notifications', {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      fetchNotifications();
+    } catch (err) { console.error(err); }
+  };
+
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}><Loader2 className="animate-spin" size={40} color="var(--accent-primary)" /></div>;
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const filtered = notifications.filter((n) => {
+    if (filter === 'ALL') return true;
+    if (filter === 'UNREAD') return !n.isRead;
+    const isCritical = n.type === 'error' || n.type === 'warning';
+    if (filter === 'CRITICAL') return isCritical;
+    if (filter === 'OPERATIONAL') return !isCritical;
+    return true;
+  });
 
   return (
     <div className="animate-premium">
@@ -88,13 +116,18 @@ export default function NotificationsPage() {
              Tienes {unreadCount} mensajes sin leer
           </p>
         </div>
-        <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-           <Trash2 size={16} /> Limpiar Todo
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={markAllRead} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} disabled={unreadCount === 0}>
+             <CheckCircle2 size={16} /> Marcar todo leído
+          </button>
+          <button onClick={clearAll} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} disabled={notifications.length === 0}>
+             <Trash2 size={16} /> Limpiar Todo
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {notifications.map((n) => (
+        {filtered.map((n) => (
           <div key={n.id} className="glass-card" style={{ 
             padding: '24px', 
             background: n.isRead ? 'var(--bg-card)' : 'white',
@@ -140,7 +173,7 @@ export default function NotificationsPage() {
           </div>
         ))}
 
-        {notifications.length === 0 && (
+        {filtered.length === 0 && (
           <div className="glass-card" style={{ padding: '100px', textAlign: 'center' }}>
              <Inbox size={64} style={{ margin: '0 auto 24px', opacity: 0.1 }} />
              <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>Bandeja Vacía</h3>
@@ -151,9 +184,10 @@ export default function NotificationsPage() {
 
       {/* Quick Filters */}
       <div style={{ marginTop: '40px', display: 'flex', gap: '10px' }}>
-         <div className="badge badge-info" style={{ cursor: 'pointer' }}>Todos</div>
-         <div className="badge" style={{ background: 'white', border: '1px solid var(--border-color)', cursor: 'pointer' }}>Alertas Críticas</div>
-         <div className="badge" style={{ background: 'white', border: '1px solid var(--border-color)', cursor: 'pointer' }}>Operacionales</div>
+         <div className={`badge ${filter === 'ALL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'ALL' ? undefined : 'white', border: filter === 'ALL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('ALL')}>Todos</div>
+         <div className={`badge ${filter === 'UNREAD' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'UNREAD' ? undefined : 'white', border: filter === 'UNREAD' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('UNREAD')}>Sin leer</div>
+         <div className={`badge ${filter === 'CRITICAL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'CRITICAL' ? undefined : 'white', border: filter === 'CRITICAL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('CRITICAL')}>Alertas Críticas</div>
+         <div className={`badge ${filter === 'OPERATIONAL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'OPERATIONAL' ? undefined : 'white', border: filter === 'OPERATIONAL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('OPERATIONAL')}>Operacionales</div>
       </div>
     </div>
   );

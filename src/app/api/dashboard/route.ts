@@ -802,11 +802,25 @@ export async function PUT(request: NextRequest) {
     }
 
     if (resource === 'notifications') {
-      const note = await prisma.notification.update({
-        where: { id, userId: tokenUser.userId },
-        data: { isRead: data.isRead }
-      });
-      return NextResponse.json(note);
+      // Individual update
+      if (id) {
+        const note = await prisma.notification.update({
+          where: { id, userId: tokenUser.userId },
+          data: { isRead: data.isRead }
+        });
+        return NextResponse.json(note);
+      }
+
+      // Bulk actions
+      if (data?.action === 'markAllRead') {
+        const result = await prisma.notification.updateMany({
+          where: { userId: tokenUser.userId, isRead: false },
+          data: { isRead: true },
+        });
+        return NextResponse.json({ success: true, updated: result.count });
+      }
+
+      return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
     }
 
     return NextResponse.json({ error: 'Recurso no válido' }, { status: 400 });
@@ -822,13 +836,23 @@ export async function DELETE(request: NextRequest) {
     const tokenUser = getUserFromRequest(request);
     if (!tokenUser) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-    if (tokenUser.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Solo SuperAdmin puede eliminar registros físicos' }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const resource = searchParams.get('resource');
     const id = searchParams.get('id');
+
+    // Notifications: allow per-user deletion for any role
+    if (resource === 'notifications') {
+      if (id) {
+        const result = await prisma.notification.deleteMany({ where: { id, userId: tokenUser.userId } });
+        return NextResponse.json({ success: true, deleted: result.count });
+      }
+      const result = await prisma.notification.deleteMany({ where: { userId: tokenUser.userId } });
+      return NextResponse.json({ success: true, deleted: result.count });
+    }
+
+    if (tokenUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Solo SuperAdmin puede eliminar registros físicos' }, { status: 403 });
+    }
 
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
 
@@ -847,11 +871,6 @@ export async function DELETE(request: NextRequest) {
     if (resource === 'tickets') {
        await prisma.ticket.delete({ where: { id } });
        await createAuditLog(tokenUser.userId, 'DELETE_TICKET', 'Ticket', id);
-       return NextResponse.json({ success: true });
-    }
-
-    if (resource === 'notifications') {
-       await prisma.notification.delete({ where: { id, userId: tokenUser.userId } });
        return NextResponse.json({ success: true });
     }
 

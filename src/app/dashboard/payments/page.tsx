@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface Payment {
@@ -13,11 +13,11 @@ interface Payment {
 import { useRouter } from 'next/navigation';
 import { Banknote, CreditCard, Smartphone, Ticket, CalendarDays, Search, Filter, Download } from 'lucide-react';
 
-const methodLabel: Record<string, React.ReactNode> = {
+const methodLabel: Record<string, JSX.Element> = {
   CASH: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-success)' }}><Banknote size={16} /> Efectivo</div>, 
   CARD: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)' }}><CreditCard size={16} /> Tarjeta</div>, 
   DIGITAL_WALLET: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a855f7' }}><Smartphone size={16} /> Billetera Digital</div>, 
-  PREPAID: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-secondary)' }}><Ticket size={16} /> Prepago</div>, 
+  PREPAID: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-gold)' }}><Ticket size={16} /> Prepago</div>, 
   MONTHLY: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}><CalendarDays size={16} /> Mensualidad</div>,
 };
 
@@ -28,6 +28,7 @@ function getAuthHeaders() {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -49,6 +50,47 @@ export default function PaymentsPage() {
 
   const totalToday = payments.filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString())
     .reduce((a, p) => a + p.amount, 0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return payments;
+    return payments.filter((p) => {
+      const plate = p.ticket?.vehicle?.plate?.toLowerCase() || '';
+      const code = p.ticket?.ticketCode?.toLowerCase() || '';
+      const invoice = (p.invoiceNumber || '').toLowerCase();
+      return plate.includes(q) || code.includes(q) || invoice.includes(q);
+    });
+  }, [payments, query]);
+
+  const exportCsv = () => {
+    const rows = filtered.map((p) => ({
+      factura: p.invoiceNumber || '',
+      ticket: p.ticket?.ticketCode || '',
+      placa: p.ticket?.vehicle?.plate || '',
+      metodo: p.method,
+      monto: p.amount,
+      operador: p.operator ? `${p.operator.firstName} ${p.operator.lastName}` : 'Sistema',
+      fecha: p.createdAt,
+      estado: p.status,
+    }));
+
+    const header = Object.keys(rows[0] || { factura: '', ticket: '', placa: '', metodo: '', monto: 0, operador: '', fecha: '', estado: '' });
+    const escape = (v: unknown) => {
+      const s = String(v ?? '');
+      const needsQuotes = /[\n\r,\"]/g.test(s);
+      const escaped = s.replace(/\"/g, '""');
+      return needsQuotes ? `"${escaped}"` : escaped;
+    };
+    const csv = [header.join(','), ...rows.map(r => header.map(h => escape((r as any)[h])).join(','))].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pagos_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}><div className="spinner" /></div>;
 
@@ -84,9 +126,9 @@ export default function PaymentsPage() {
            <div style={{ display: 'flex', gap: '12px' }}>
               <div style={{ position: 'relative' }}>
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input className="input-field" placeholder="Buscar por placa..." style={{ width: '240px', paddingLeft: '40px', height: '40px', fontSize: '13px' }} />
+                <input className="input-field" placeholder="Buscar por placa, ticket o factura..." value={query} onChange={e => setQuery(e.target.value)} style={{ width: '300px', paddingLeft: '40px', height: '40px', fontSize: '13px' }} />
               </div>
-              <button className="btn-secondary" style={{ height: '40px', padding: '0 20px' }}>
+              <button className="btn-secondary" style={{ height: '40px', padding: '0 20px' }} onClick={exportCsv} disabled={filtered.length === 0}>
                 <Download size={16} /> Exportar
               </button>
            </div>
@@ -96,7 +138,7 @@ export default function PaymentsPage() {
             <tr><th>Factura</th><th>Placa</th><th>Método</th><th>Monto</th><th>Operador</th><th>Fecha</th><th>Estado</th></tr>
           </thead>
           <tbody>
-            {payments.map(p => (
+            {filtered.map(p => (
               <tr key={p.id}>
                 <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent-primary)' }}>{p.invoiceNumber || 'N/A'}</td>
                 <td style={{ fontWeight: 800, letterSpacing: '0.5px', color: 'var(--text-primary)' }}>{p.ticket.vehicle.plate}</td>
