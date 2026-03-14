@@ -127,6 +127,8 @@ model User {
   auditLogs       AuditLog[]
   subscriptions   Subscription[]
   notifications   Notification[]
+  conversationParticipants ConversationParticipant[]
+  sentMessages    Message[]     @relation("MessageSender")
   refreshTokens   RefreshToken[]
 
   @@map("users")
@@ -175,6 +177,7 @@ model ParkingLot {
   tickets     Ticket[]
   shifts      Shift[]
   payments    Payment[]
+  conversations Conversation[]
 
   @@map("parking_lots")
 }
@@ -401,6 +404,49 @@ model Notification {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("notifications")
+}
+
+// ============================================
+// MESSAGING (INTERNAL CHAT)
+// ============================================
+
+model Conversation {
+  id           String      @id @default(uuid())
+  title        String
+  parkingLotId String      @map("parking_lot_id")
+  parkingLot   ParkingLot  @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?    @map("last_read_at")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String       @map("sender_id")
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("messages")
 }
 
 // ============================================

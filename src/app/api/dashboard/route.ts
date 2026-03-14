@@ -448,6 +448,110 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(notes);
     }
 
+    // People picker for messaging (all roles, scoped to current lot)
+    if (resource === 'people') {
+      if (!parkingLotId) return NextResponse.json([]);
+      const people = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: ['ADMIN', 'OPERATOR'] },
+          OR: [
+            { assignedLotId: parkingLotId },
+            { parkingLot: { is: { id: parkingLotId } } },
+          ],
+        },
+        select: { id: true, firstName: true, lastName: true, role: true, email: true },
+        orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
+        take: 200,
+      });
+      return NextResponse.json(people);
+    }
+
+    // Conversations for current user
+    if (resource === 'conversations') {
+      if (!parkingLotId) return NextResponse.json([]);
+
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          parkingLotId,
+          participants: { some: { userId: user.userId } },
+        },
+        include: {
+          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, role: true } } } },
+          messages: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 30,
+      });
+
+      // compute unread count per conversation
+      const enriched = await Promise.all(
+        conversations.map(async (c) => {
+          const me = c.participants.find((p) => p.userId === user.userId);
+          const lastReadAt = me?.lastReadAt ?? new Date(0);
+          const unread = await prisma.message.count({
+            where: {
+              conversationId: c.id,
+              createdAt: { gt: lastReadAt },
+              senderId: { not: user.userId },
+            },
+          });
+          return {
+            id: c.id,
+            title: c.title,
+            parkingLotId: c.parkingLotId,
+            updatedAt: c.updatedAt,
+            participants: c.participants.map((p) => ({
+              userId: p.userId,
+              lastReadAt: p.lastReadAt,
+              user: p.user,
+            })),
+            lastMessage: c.messages[0]
+              ? {
+                  id: c.messages[0].id,
+                  body: c.messages[0].body,
+                  createdAt: c.messages[0].createdAt,
+                  sender: c.messages[0].sender,
+                }
+              : null,
+            unread,
+          };
+        })
+      );
+
+      return NextResponse.json(enriched);
+    }
+
+    // Messages in a conversation
+    if (resource === 'messages') {
+      const conversationId = searchParams.get('conversationId');
+      if (!conversationId) return NextResponse.json({ error: 'conversationId requerido' }, { status: 400 });
+
+      const membership = await prisma.conversationParticipant.findUnique({
+        where: { conversationId_userId: { conversationId, userId: user.userId } },
+        include: { conversation: { select: { id: true, parkingLotId: true, title: true } } },
+      });
+      if (!membership) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      if (parkingLotId && membership.conversation.parkingLotId !== parkingLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      const msgs = await prisma.message.findMany({
+        where: { conversationId },
+        include: { sender: { select: { id: true, firstName: true, lastName: true, role: true } } },
+        orderBy: { createdAt: 'asc' },
+        take: 200,
+      });
+      return NextResponse.json({
+        conversation: membership.conversation,
+        messages: msgs,
+      });
+    }
+
     return NextResponse.json({ error: 'Recurso no encontrado' }, { status: 404 });
   } catch (error) {
     console.error('Dashboard API error:', error);
@@ -910,6 +1014,99 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(lot);
     }
 
+    // Create conversation
+    if (resource === 'conversations') {
+      if (!contextLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
+
+      const title = String(body.data?.title || body.title || 'Conversación').trim();
+      const rawParticipantIds: unknown = body.data?.participantIds ?? body.participantIds;
+      const participantIds = Array.isArray(rawParticipantIds)
+        ? rawParticipantIds.map((x) => String(x)).filter(Boolean)
+        : [];
+
+      const allParticipantIds = Array.from(new Set([tokenUser.userId, ...participantIds]));
+      if (allParticipantIds.length < 2) {
+        return NextResponse.json({ error: 'Debes seleccionar al menos un participante' }, { status: 400 });
+      }
+
+      // Ensure participants belong to same lot (unless SUPER_ADMIN)
+      const users = await prisma.user.findMany({
+        where: { id: { in: allParticipantIds } },
+        select: { id: true, role: true, assignedLotId: true, parkingLot: { select: { id: true } } },
+      });
+      if (users.length !== allParticipantIds.length) {
+        return NextResponse.json({ error: 'Participantes inválidos' }, { status: 400 });
+      }
+
+      if (tokenUser.role !== 'SUPER_ADMIN') {
+        const bad = users.find((u) => {
+          const lot = u.parkingLot?.id ?? u.assignedLotId ?? null;
+          return lot !== contextLotId;
+        });
+        if (bad) return NextResponse.json({ error: 'Participantes fuera de la sede' }, { status: 403 });
+      }
+
+      const convo = await prisma.conversation.create({
+        data: {
+          title,
+          parkingLotId: contextLotId,
+          participants: {
+            create: allParticipantIds.map((uid) => ({
+              userId: uid,
+              lastReadAt: uid === tokenUser.userId ? new Date() : null,
+            })),
+          },
+        },
+        include: {
+          participants: { include: { user: { select: { id: true, firstName: true, lastName: true, role: true } } } },
+        },
+      });
+
+      await createAuditLog(tokenUser.userId, 'CREATE_CONVERSATION', 'Conversation', convo.id, { parkingLotId: contextLotId, participantIds: allParticipantIds });
+      return NextResponse.json(convo);
+    }
+
+    // Send message
+    if (resource === 'messages') {
+      const conversationId = String(body.data?.conversationId || body.conversationId || '').trim();
+      const messageBody = String(body.data?.body || body.body || '').trim();
+      if (!conversationId) return NextResponse.json({ error: 'conversationId requerido' }, { status: 400 });
+      if (!messageBody) return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 });
+      if (!contextLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
+
+      const membership = await prisma.conversationParticipant.findUnique({
+        where: { conversationId_userId: { conversationId, userId: tokenUser.userId } },
+        include: { conversation: { select: { id: true, parkingLotId: true } } },
+      });
+      if (!membership) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      if (membership.conversation.parkingLotId !== contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      const msg = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: tokenUser.userId,
+          body: messageBody,
+        },
+        include: { sender: { select: { id: true, firstName: true, lastName: true, role: true } } },
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
+
+      // Mark sender as read up to now
+      await prisma.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId: tokenUser.userId } },
+        data: { lastReadAt: new Date() },
+      });
+
+      await createAuditLog(tokenUser.userId, 'SEND_MESSAGE', 'Conversation', conversationId, { length: messageBody.length });
+      return NextResponse.json(msg);
+    }
+
     return NextResponse.json({ error: 'Recurso no válido' }, { status: 400 });
   } catch (error) {
     console.error('Dashboard POST error:', error);
@@ -953,6 +1150,33 @@ export async function PUT(request: NextRequest) {
       }
 
       return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
+    }
+
+    // Mark conversation as read (all roles)
+    if (resource === 'conversation-read') {
+      const conversationId = String(body.data?.conversationId || body.conversationId || '').trim();
+      if (!conversationId) return NextResponse.json({ error: 'conversationId requerido' }, { status: 400 });
+
+      const membership = await prisma.conversationParticipant.findUnique({
+        where: { conversationId_userId: { conversationId, userId: tokenUser.userId } },
+        include: { conversation: { select: { id: true, parkingLotId: true } } },
+      });
+      if (!membership) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+      const requestedLotId: string | null = body.parkingLotId ?? body.data?.parkingLotId ?? null;
+      const contextLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role, requestedLotId);
+      if (requestedLotId && !contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+      if (contextLotId && membership.conversation.parkingLotId !== contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      await prisma.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId: tokenUser.userId } },
+        data: { lastReadAt: new Date() },
+      });
+      return NextResponse.json({ success: true });
     }
 
     // Extend Duration Logic (demo-safe; audit only)
