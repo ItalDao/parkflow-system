@@ -12,7 +12,9 @@ import {
   Search,
   LogOut,
   User as UserIcon,
-  MessageSquare
+  MessageSquare,
+  Clock,
+  Activity
 } from 'lucide-react';
 
 interface NavItem {
@@ -22,10 +24,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-  { href: '/dashboard/parking-map', label: 'Mensajes', icon: <MessageSquare size={20} /> },
-  { href: '/dashboard/tickets', label: 'Reservación', icon: <Ticket size={20} /> },
-  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={20} /> },
+  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+  { href: '/dashboard/parking-map', label: 'Mapa', icon: <MapPin size={18} /> },
+  { href: '/dashboard/tickets', label: 'Tickets', icon: <Ticket size={18} /> },
+  { href: '/dashboard/shifts', label: 'Turnos', icon: <Clock size={18} /> },
+  { href: '/dashboard/reports', label: 'Análisis', icon: <Activity size={18} /> },
+  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={18} /> },
 ];
 
 export function PillNavBar({ user, onLogout }: { user: any, onLogout: () => void }) {
@@ -82,6 +86,7 @@ export function PillNavBar({ user, onLogout }: { user: any, onLogout: () => void
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="icon-btn-pill"><Search size={18} /></button>
+          <Link href="/dashboard/messages" className="icon-btn-pill"><MessageSquare size={18} /></Link>
           <button className="icon-btn-pill"><Bell size={18} /></button>
         </div>
 

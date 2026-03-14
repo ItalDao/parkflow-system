@@ -14,29 +14,37 @@ import {
   MapPin,
   Clock,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  User,
+  Database,
+  Search
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default function ManagementPage() {
-  const [activeTab, setActiveTab] = useState<'zones' | 'rates' | 'lots'>('zones');
+  const [activeTab, setActiveTab] = useState<'zones' | 'rates' | 'lots' | 'customers' | 'config'>('zones');
   const [zones, setZones] = useState<any[]>([]);
   const [rates, setRates] = useState<any[]>([]);
   const [lots, setLots] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [config, setConfig] = useState<any>({ gracePeriod: 15, lostTicketPenalty: 50000, multiSede: true });
   const [loading, setLoading] = useState(true);
+  const [showLotModal, setShowLotModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
-      const [zRes, rRes, lRes] = await Promise.all([
+      const [zRes, rRes, lRes, cRes] = await Promise.all([
         fetch('/api/dashboard?resource=zones', { headers }),
         fetch('/api/dashboard?resource=rates', { headers }),
-        fetch('/api/dashboard?resource=lots', { headers })
+        fetch('/api/dashboard?resource=lots', { headers }),
+        fetch('/api/dashboard?resource=subscriptions', { headers })
       ]);
       
       if (zRes.ok) setZones(await zRes.json());
       if (rRes.ok) setRates(await rRes.json());
       if (lRes.ok) setLots(await lRes.json());
+      if (cRes.ok) setCustomers(await cRes.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
@@ -53,15 +61,17 @@ export default function ManagementPage() {
            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Configuración de sedes, zonas y esquemas tarifarios</span>
         </div>
         <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }}>
-           <PlusCircle size={18} /> Nuevo Regsitro
+           <PlusCircle size={18} /> Nuevo Registro
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '8px' }}>
          {[
            { id: 'lots', label: 'Sedes', icon: <MapPin size={18} /> },
            { id: 'zones', label: 'Zonas', icon: <Layers size={18} /> },
-           { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> }
+           { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> },
+           { id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> },
+           { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
          ].map(tab => (
            <button 
              key={tab.id}
@@ -69,7 +79,7 @@ export default function ManagementPage() {
              style={{ 
                padding: '12px 24px', borderRadius: 'var(--radius-pill)', border: 'none',
                fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s ease',
-               display: 'flex', alignItems: 'center', gap: '10px',
+               display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap',
                background: activeTab === tab.id ? 'var(--accent-gold)' : 'white',
                color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
                boxShadow: activeTab === tab.id ? '0 8px 24px rgba(233, 185, 73, 0.3)' : 'none'
@@ -153,6 +163,82 @@ export default function ManagementPage() {
            </div>
          )}
 
+         {activeTab === 'customers' && (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                     <th style={{ paddingBottom: '24px' }}>Cliente</th>
+                     <th>Suscripción</th>
+                     <th>Vehículo</th>
+                     <th>Vencimiento</th>
+                     <th>Estado</th>
+                     <th style={{ textAlign: 'right' }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map(sub => (
+                    <tr key={sub.id}>
+                      <td style={{ paddingTop: '24px', paddingBottom: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                           <div className="white-card" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 900 }}>{sub.user.firstName[0]}</div>
+                           <span style={{ fontWeight: 800 }}>{sub.user.firstName} {sub.user.lastName}</span>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 700 }}>{sub.type}</td>
+                      <td style={{ fontWeight: 700 }}>{sub.vehicle.plate}</td>
+                      <td style={{ fontSize: '12px', fontWeight: 700 }}>{formatDate(sub.endDate)}</td>
+                      <td>
+                         <span className={`badge ${sub.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`} style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}>
+                            {sub.status === 'ACTIVE' ? 'Activo' : 'Vencido'}
+                         </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                         <button className="white-card" style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Gestionar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'config' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
+               <div className="white-card" style={{ padding: '32px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Parámetros Globales</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                     <div>
+                        <label className="input-label">Tiempo de Gracia (min)</label>
+                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={config.gracePeriod} onChange={e => setConfig({...config, gracePeriod: e.target.value})} />
+                     </div>
+                     <div>
+                        <label className="input-label">Penalidad Ticket Perdido</label>
+                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={config.lostTicketPenalty} onChange={e => setConfig({...config, lostTicketPenalty: e.target.value})} />
+                     </div>
+                  </div>
+               </div>
+               <div className="white-card" style={{ padding: '32px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Seguridad y Acceso</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '14px', fontWeight: 700 }}>Multi-sede habilitado</span>
+                         <input type="checkbox" checked={config.multiSede} onChange={e => setConfig({...config, multiSede: e.target.checked})} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: '14px', fontWeight: 700 }}>2FA Obligatorio</span>
+                         <input type="checkbox" />
+                      </div>
+                  </div>
+               </div>
+               <div className="white-card" style={{ padding: '32px', background: 'var(--text-primary)', color: 'white' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px', color: 'var(--accent-gold)' }}>Mantenimiento</h4>
+                  <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '24px' }}>Realice copias de seguridad de la base de datos o restaure el sistema a un punto anterior.</p>
+                  <button className="btn-primary" style={{ width: '100%', border: 'none' }}>Backup Cloud</button>
+               </div>
+            </div>
+          )}
+
          {activeTab === 'lots' && (
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '32px' }}>
              {lots.map(lot => (
@@ -167,7 +253,7 @@ export default function ManagementPage() {
                      </div>
                      <div className={`status-dot ${lot.isActive ? 'online' : 'offline'}`} />
                   </div>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
                      <div style={{ padding: '20px', borderRadius: '20px', background: 'var(--bg-primary)', display: 'flex', gap: '16px', alignItems: 'center' }}>
                         <ParkingCircle size={24} color="var(--accent-gold)" />
