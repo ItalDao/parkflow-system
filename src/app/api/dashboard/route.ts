@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
-import { Prisma, TicketStatus } from '@prisma/client';
+import { Prisma, Role, TicketStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 function getUserFromRequest(request: NextRequest) {
@@ -51,7 +51,7 @@ async function resolveParkingLotIdForUser(
 }
 
 async function setSpaceStatusWithHistory(
-  tx: typeof prisma,
+  tx: Prisma.TransactionClient,
   params: { spaceId: string; toStatus: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE' | 'OUT_OF_SERVICE'; reason?: string }
 ) {
   const current = await tx.space.findUnique({ where: { id: params.spaceId }, select: { status: true } });
@@ -954,7 +954,8 @@ export async function POST(request: NextRequest) {
       const password = String(body.password || '123456');
       const firstName = String(body.firstName || '').trim();
       const lastName = String(body.lastName || '').trim();
-      const requestedRole = String(body.role || 'OPERATOR').trim();
+      const roleParam = String(body.role || 'OPERATOR').trim();
+      const requestedRole: Role = Object.values(Role).includes(roleParam as Role) ? (roleParam as Role) : 'OPERATOR';
       const requestedAssignedLotId = body.assignedLotId ? String(body.assignedLotId) : null;
 
       if (!email || !firstName || !lastName) {

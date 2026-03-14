@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface Payment {
@@ -13,7 +14,7 @@ interface Payment {
 import { useRouter } from 'next/navigation';
 import { Banknote, CreditCard, Smartphone, Ticket, CalendarDays, Search, Filter, Download } from 'lucide-react';
 
-const methodLabel: Record<string, JSX.Element> = {
+const methodLabel: Record<string, ReactNode> = {
   CASH: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-success)' }}><Banknote size={16} /> Efectivo</div>, 
   CARD: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)' }}><CreditCard size={16} /> Tarjeta</div>, 
   DIGITAL_WALLET: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a855f7' }}><Smartphone size={16} /> Billetera Digital</div>, 
