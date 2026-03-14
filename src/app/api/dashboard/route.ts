@@ -1028,6 +1028,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(lot);
     }
 
+    // Create vehicle
+    if (resource === 'vehicles') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      const data = (body.data && typeof body.data === 'object') ? (body.data as Record<string, unknown>) : (body as Record<string, unknown>);
+      const plate = String(data.plate || '').trim().toUpperCase();
+      const type = String(data.type || 'CAR').trim();
+      const brand = data.brand ? String(data.brand).trim() : undefined;
+      const model = data.model ? String(data.model).trim() : undefined;
+      const color = data.color ? String(data.color).trim() : undefined;
+      const isBlacklisted = Boolean(data.isBlacklisted);
+      const blacklistReason = data.blacklistReason ? String(data.blacklistReason).trim() : undefined;
+
+      if (!plate) return NextResponse.json({ error: 'Placa requerida' }, { status: 400 });
+      if (plate.length < 4 || plate.length > 12) return NextResponse.json({ error: 'Placa inválida' }, { status: 400 });
+
+      const allowedTypes = new Set(['CAR', 'MOTORCYCLE', 'VAN']);
+      if (!allowedTypes.has(type)) return NextResponse.json({ error: 'Tipo de vehículo inválido' }, { status: 400 });
+
+      const existing = await prisma.vehicle.findUnique({ where: { plate } });
+      if (existing) return NextResponse.json({ error: 'Ya existe un vehículo con esa placa' }, { status: 409 });
+
+      const created = await prisma.vehicle.create({
+        data: {
+          plate,
+          type: type as never,
+          brand,
+          model,
+          color,
+          isBlacklisted,
+          blacklistReason: isBlacklisted ? (blacklistReason || 'Bloqueado') : null,
+        },
+        include: { _count: { select: { tickets: true } } },
+      });
+
+      await createAuditLog(tokenUser.userId, 'CREATE_VEHICLE', 'Vehicle', created.id, { plate, type, brand, model, color, isBlacklisted });
+      return NextResponse.json(created);
+    }
+
     // Create subscription (monthly pass)
     if (resource === 'subscriptions') {
       if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
