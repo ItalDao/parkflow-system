@@ -2,27 +2,27 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  CheckCircle2, 
-  Car as CarIcon, 
   Map as MapIcon, 
-  Shield, 
-  Zap, 
-  Home, 
-  Sun, 
-  Star, 
-  Bike, 
-  Info, 
-  Wrench, 
-  Lock,
   MoreHorizontal,
   RotateCcw,
-  Search
+  X
 } from 'lucide-react';
 import { getVehicleTypeIcon } from '@/lib/utils';
 
+function getAuthHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('accessToken')}`, 'Content-Type': 'application/json' };
+}
+
+type TicketLite = {
+  id: string;
+  ticketCode: string;
+  entryTime: string;
+  vehicle: { plate: string; type: string; brand?: string | null; color?: string | null };
+};
+
 interface Space {
   id: string; number: string; status: string; floor: number;
-  tickets: Array<{ vehicle: { plate: string; type: string; brand?: string; color?: string } }>;
+  tickets: TicketLite[];
 }
 
 interface Zone {
@@ -34,6 +34,12 @@ export default function ParkingMapPage() {
   const [activeZoneId, setActiveZoneId] = useState<string>('');
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [showEntry, setShowEntry] = useState(false);
+  const [showExit, setShowExit] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [entryForm, setEntryForm] = useState({ plate: '', vehicleType: 'CAR' });
+  const [exitPaymentMethod, setExitPaymentMethod] = useState<'CASH' | 'CARD' | 'DIGITAL_WALLET'>('CASH');
 
   const fetchZones = useCallback(async () => {
     try {
@@ -55,6 +61,75 @@ export default function ParkingMapPage() {
   const totalSpaces = zones.reduce((a, z) => a + z.spaces.length, 0);
   const occupiedSpaces = zones.reduce((a, z) => a + z.spaces.filter(s => s.status === 'OCCUPIED').length, 0);
   const availableSpaces = totalSpaces - occupiedSpaces;
+
+  const selectedTicket = selectedSpace?.tickets?.[0] || null;
+  const canEntry = selectedSpace?.status === 'AVAILABLE';
+  const canExit = selectedSpace?.status === 'OCCUPIED' && !!selectedTicket;
+
+  const handleRegister = () => {
+    if (!selectedSpace) return;
+    if (canEntry) {
+      setEntryForm({ plate: '', vehicleType: 'CAR' });
+      setShowEntry(true);
+      return;
+    }
+    if (canExit) {
+      setExitPaymentMethod('CASH');
+      setShowExit(true);
+    }
+  };
+
+  const submitEntry = async () => {
+    if (!selectedSpace) return;
+    const plate = entryForm.plate.trim().toUpperCase();
+    if (!plate) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/dashboard', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ resource: 'entry', plate, vehicleType: entryForm.vehicleType, spaceId: selectedSpace.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert((data as { error?: string }).error || 'No se pudo registrar la entrada');
+        return;
+      }
+      setShowEntry(false);
+      setSelectedSpace(null);
+      await fetchZones();
+    } catch (err) {
+      console.error(err);
+      alert('Error al registrar entrada');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const submitExit = async () => {
+    if (!selectedTicket) return;
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/dashboard', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ resource: 'exit', ticketId: selectedTicket.id, paymentMethod: exitPaymentMethod }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert((data as { error?: string }).error || 'No se pudo procesar la salida');
+        return;
+      }
+      setShowExit(false);
+      setSelectedSpace(null);
+      await fetchZones();
+    } catch (err) {
+      console.error(err);
+      alert('Error al procesar salida');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
@@ -111,7 +186,7 @@ export default function ParkingMapPage() {
                         position: 'relative'
                     }}
                  >
-                   {space.status === 'OCCUPIED' && vehicle ? (
+                  {space.status === 'OCCUPIED' && vehicle ? (
                      <div style={{ position: 'relative' }}>
                         {getVehicleTypeIcon(vehicle.type, 32)}
                         <div style={{ position: 'absolute', top: -4, right: -4, width: '10px', height: '10px', background: 'var(--accent-danger)', borderRadius: '50%', border: '2px solid white' }} />
@@ -181,8 +256,13 @@ export default function ParkingMapPage() {
                    </div>
                 </div>
 
-                <button className="btn-primary" style={{ height: '56px', borderRadius: '16px' }}>
-                   Registrar Operación
+                <button
+                  className="btn-primary"
+                  style={{ height: '56px', borderRadius: '16px', opacity: (canEntry || canExit) ? 1 : 0.6 }}
+                  onClick={handleRegister}
+                  disabled={!canEntry && !canExit}
+                >
+                  {canEntry ? 'Registrar Ingreso' : canExit ? 'Procesar Salida' : 'Operación no disponible'}
                 </button>
              </div>
            ) : (
@@ -193,6 +273,102 @@ export default function ParkingMapPage() {
            )}
         </div>
       </div>
+
+      {/* Entry Modal */}
+      {showEntry && selectedSpace && (
+        <div className="modal-overlay" onClick={() => !processing && setShowEntry(false)}>
+          <div className="modal-content-premium animate-premium" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3 style={{ fontSize: '22px', fontWeight: 900 }}>Registrar Ingreso</h3>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Espacio {selectedSpace.number} · {currentZone?.name || '—'}</span>
+              </div>
+              <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowEntry(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', marginBottom: '22px' }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div className="input-label" style={{ marginBottom: '8px' }}>Placa</div>
+                <input
+                  className="white-card"
+                  style={{ border: 'none', padding: '16px', width: '100%', fontSize: '20px', fontWeight: 900, textAlign: 'center', letterSpacing: '3px' }}
+                  value={entryForm.plate}
+                  onChange={(e) => setEntryForm({ ...entryForm, plate: e.target.value.toUpperCase() })}
+                  placeholder="ABC123"
+                />
+              </div>
+              <div>
+                <div className="input-label" style={{ marginBottom: '8px' }}>Tipo</div>
+                <select
+                  className="white-card"
+                  style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }}
+                  value={entryForm.vehicleType}
+                  onChange={(e) => setEntryForm({ ...entryForm, vehicleType: e.target.value })}
+                >
+                  <option value="CAR">Automóvil</option>
+                  <option value="MOTORCYCLE">Motocicleta</option>
+                  <option value="VAN">Camioneta</option>
+                </select>
+              </div>
+              <div>
+                <div className="input-label" style={{ marginBottom: '8px' }}>Estado</div>
+                <div className="white-card" style={{ padding: '16px', fontWeight: 900 }}>Disponible</div>
+              </div>
+            </div>
+
+            <button className="btn-primary" style={{ width: '100%', height: '60px' }} onClick={() => void submitEntry()} disabled={processing || !entryForm.plate.trim()}>
+              {processing ? 'Procesando…' : 'Confirmar Ingreso'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Modal */}
+      {showExit && selectedTicket && selectedSpace && (
+        <div className="modal-overlay" onClick={() => !processing && setShowExit(false)}>
+          <div className="modal-content-premium animate-premium" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h3 style={{ fontSize: '22px', fontWeight: 900 }}>Procesar Salida</h3>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Ticket #{selectedTicket.ticketCode} · Espacio {selectedSpace.number}</span>
+              </div>
+              <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowExit(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="white-card" style={{ padding: '18px', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>PLACA</span>
+                <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '3px' }}>{selectedTicket.vehicle.plate}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {getVehicleTypeIcon(selectedTicket.vehicle.type, 26)}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '22px' }}>
+              <div className="input-label" style={{ marginBottom: '8px' }}>Método de pago</div>
+              <select
+                className="white-card"
+                style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }}
+                value={exitPaymentMethod}
+                onChange={(e) => setExitPaymentMethod(e.target.value as 'CASH' | 'CARD' | 'DIGITAL_WALLET')}
+              >
+                <option value="CASH">Efectivo</option>
+                <option value="CARD">Tarjeta</option>
+                <option value="DIGITAL_WALLET">Billetera digital</option>
+              </select>
+            </div>
+
+            <button className="btn-primary" style={{ width: '100%', height: '60px', background: 'var(--accent-danger)' }} onClick={() => void submitExit()} disabled={processing}>
+              {processing ? 'Procesando…' : 'Confirmar Salida'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

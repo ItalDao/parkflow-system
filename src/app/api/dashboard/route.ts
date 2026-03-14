@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
+import { Prisma, TicketStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 function getUserFromRequest(request: NextRequest) {
@@ -242,10 +243,32 @@ export async function GET(request: NextRequest) {
 
     // Recent tickets
     if (resource === 'tickets') {
-      const status = searchParams.get('status');
-      const whereClause: Record<string, unknown> = {};
-      if (status) whereClause.status = status;
+      const statusParam = searchParams.get('status');
+      const q = searchParams.get('q');
+      const takeParam = searchParams.get('take');
+
+      const take = (() => {
+        if (!takeParam) return 50;
+        const parsed = Number.parseInt(takeParam, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) return 50;
+        return Math.min(parsed, 200);
+      })();
+
+      const whereClause: Prisma.TicketWhereInput = {};
+      if (statusParam && Object.values(TicketStatus).includes(statusParam as TicketStatus)) {
+        whereClause.status = statusParam as TicketStatus;
+      }
       if (parkingLotId) whereClause.parkingLotId = parkingLotId;
+
+      if (q) {
+        const normalized = q.trim();
+        if (normalized) {
+          whereClause.OR = [
+            { ticketCode: { contains: normalized, mode: 'insensitive' } },
+            { vehicle: { plate: { contains: normalized.replace(/\s+/g, ''), mode: 'insensitive' } } },
+          ];
+        }
+      }
 
       const tickets = await prisma.ticket.findMany({
         where: whereClause,
@@ -256,10 +279,81 @@ export async function GET(request: NextRequest) {
           payment: true,
         },
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take,
       });
 
       return NextResponse.json(tickets);
+    }
+
+    // Quote an ACTIVE ticket without closing it
+    if (resource === 'ticket-quote') {
+      const ticketId = searchParams.get('ticketId');
+      const lostTicket = searchParams.get('lostTicket') === 'true';
+      if (!ticketId) return NextResponse.json({ error: 'ticketId requerido' }, { status: 400 });
+
+      const ticket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: { vehicle: true, space: { include: { zone: true } } },
+      });
+
+      if (!ticket || ticket.status !== 'ACTIVE') {
+        return NextResponse.json({ error: 'Ticket no encontrado o no está activo' }, { status: 400 });
+      }
+
+      const parkingLot = await prisma.parkingLot.findUnique({ where: { id: ticket.parkingLotId } });
+      if (!parkingLot) return NextResponse.json({ error: 'Sede no encontrada' }, { status: 400 });
+
+      const now = new Date();
+      const entryTime = new Date(ticket.entryTime);
+
+      const zoneRate = await prisma.rate.findFirst({
+        where: {
+          parkingLotId: ticket.parkingLotId,
+          vehicleType: ticket.vehicle.type,
+          zoneId: ticket.space.zoneId,
+          isActive: true,
+        },
+        orderBy: { price: 'desc' },
+      });
+      const lotRate = await prisma.rate.findFirst({
+        where: {
+          parkingLotId: ticket.parkingLotId,
+          vehicleType: ticket.vehicle.type,
+          zoneId: null,
+          isActive: true,
+        },
+        orderBy: { price: 'desc' },
+      });
+      const rate = zoneRate ?? lotRate;
+      const hourlyRate = rate?.price ?? 3000;
+
+      const pricing = calculateHourlyFractionalPricing({
+        entryTime,
+        exitTime: now,
+        gracePeriodMinutes: parkingLot.gracePeriod,
+        hourlyRate,
+      });
+
+      const amount = lostTicket ? parkingLot.lostTicketFee : pricing.amount;
+
+      return NextResponse.json({
+        ticket: {
+          id: ticket.id,
+          ticketCode: ticket.ticketCode,
+          entryTime: ticket.entryTime,
+          vehicle: { plate: ticket.vehicle.plate, type: ticket.vehicle.type },
+          space: { number: ticket.space.number, zone: { name: ticket.space.zone.name } },
+        },
+        pricing: {
+          totalHours: Math.round(pricing.totalHours * 100) / 100,
+          hourlyRate,
+          gracePeriodMinutes: parkingLot.gracePeriod,
+          amount,
+          lostTicketFee: parkingLot.lostTicketFee,
+          isLostTicket: lostTicket,
+        },
+        serverTime: now.toISOString(),
+      });
     }
 
     // Vehicles
