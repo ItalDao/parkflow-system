@@ -88,16 +88,16 @@ export default function LoginPage() {
       {/* Decorative Elements */}
       <div style={{
         position: 'absolute', top: '-5rem', right: '-5rem', width: '25rem', height: '25rem',
-        background: 'rgba(49, 130, 206, 0.1)', borderRadius: '50%', filter: 'blur(80px)',
+        background: 'rgba(233, 185, 73, 0.1)', borderRadius: '50%', filter: 'blur(80px)',
       }} />
       <div style={{
         position: 'absolute', bottom: '-5rem', left: '-5rem', width: '30rem', height: '30rem',
-        background: 'rgba(56, 178, 172, 0.08)', borderRadius: '50%', filter: 'blur(100px)',
+        background: 'rgba(56, 178, 172, 0.05)', borderRadius: '50%', filter: 'blur(100px)',
       }} />
 
       <div className="glass-card animate-premium" style={{ 
         width: '100%', maxWidth: '440px', padding: '50px', 
-        background: 'rgba(255, 255, 255, 0.7)',
+        background: 'rgba(255, 255, 255, 0.8)',
         border: '1px solid rgba(255, 255, 255, 0.5)', 
         backdropFilter: 'blur(40px)', 
         position: 'relative', zIndex: 10,
@@ -107,15 +107,15 @@ export default function LoginPage() {
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
             width: '72px', height: '72px', borderRadius: '24px',
-            background: 'var(--accent-gradient)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-            boxShadow: '0 12px 24px rgba(49, 130, 206, 0.2)',
+            background: 'var(--text-primary)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-gold)',
+            boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
             marginBottom: '24px'
           }}>
             <ParkingCircle size={40} />
           </div>
           <h1 style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-1.5px', marginBottom: '4px' }}>
-            ParkingOS
+            Parkzone
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, letterSpacing: '0.5px' }}>
             GESTIÓN DE PARQUEADERO ELITE
@@ -125,30 +125,30 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
              <div>
-               <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
-                 Correo Electrónico
-               </label>
-               <input
-                 type="email"
-                 placeholder="admin@parkingos.com"
-                 value={email}
-                 onChange={(e) => setEmail(e.target.value)}
-                 required
-                 style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px' }}
-               />
+                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
+                  Correo Electrónico
+                </label>
+                <input
+                  type="email"
+                  placeholder="admin@parkingos.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
+                />
              </div>
              <div>
-               <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
-                 Contraseña
-               </label>
-               <input
-                 type="password"
-                 placeholder="••••••••"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 required
-                 style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px' }}
-               />
+                <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
+                />
              </div>
           </div>
 
@@ -157,10 +157,10 @@ export default function LoginPage() {
                type="button"
                onClick={() => alert('Sistema de recuperación enviado a su correo corporativo.')}
                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'color 0.2s ease' }}
-               onMouseOver={(e) => (e.currentTarget.style.color = 'var(--accent-primary)')}
+               onMouseOver={(e) => (e.currentTarget.style.color = 'var(--accent-gold)')}
                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
             >
-              ¿Olvidó su contraseña?
+               ¿Olvidó su contraseña?
             </button>
           </div>
 
@@ -169,12 +169,12 @@ export default function LoginPage() {
             disabled={loading}
             className="btn-primary"
             style={{ 
-              padding: '16px', borderRadius: '16px', fontSize: '15px', fontWeight: 800,
+              padding: '16px', borderRadius: '16px', fontSize: '15px', fontWeight: 900,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
               transition: 'all 0.3s ease', cursor: 'pointer', border: 'none', width: '100%',
-              background: 'var(--accent-gradient)',
-              color: 'white',
-              boxShadow: '0 10px 20px rgba(49, 130, 206, 0.2)'
+              background: 'var(--text-primary)',
+              color: 'var(--accent-gold)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
             }}
           >
             {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
@@ -187,8 +187,8 @@ export default function LoginPage() {
             onClick={seedData}
             disabled={seeding}
             style={{ 
-              background: 'transparent', border: 'none', color: 'var(--accent-primary)', 
-              fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'transparent', border: 'none', color: 'var(--accent-gold)', 
+              fontSize: '11px', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
               textTransform: 'uppercase', letterSpacing: '1px',
             }}
           >
@@ -199,7 +199,7 @@ export default function LoginPage() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '30px', color: 'var(--text-muted)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px' }}>
-        PARKING-OS CLOUD © 2026 · SECURE ACCESS
+        PARKZONE CLOUD © 2026 · ELITE ACCESS
       </div>
     </div>
   );

@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
                   },
                 },
               },
+              _count: { select: { spaces: true } }
             },
           },
         },
@@ -215,6 +216,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(shifts);
     }
 
+    if (resource === 'current-shift') {
+      const shift = await prisma.shift.findFirst({
+        where: { operatorId: user.userId, status: 'OPEN' },
+        include: { operator: { select: { firstName: true, lastName: true } } },
+      });
+      return NextResponse.json(shift);
+    }
+
+    if (resource === 'shifts-history') {
+      const shifts = await prisma.shift.findMany({
+        where: user.role === 'OPERATOR' ? { operatorId: user.userId } : {},
+        include: {
+          operator: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+      return NextResponse.json(shifts);
+    }
+
     // Payments
     if (resource === 'payments') {
       const payments = await prisma.payment.findMany({
@@ -235,6 +256,13 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       });
       return NextResponse.json(rates);
+    }
+
+    if (resource === 'lots') {
+      const lots = await prisma.parkingLot.findMany({
+        include: { _count: { select: { zones: true } } }
+      });
+      return NextResponse.json(lots);
     }
 
     // Audit logs (SUPER_ADMIN only)

@@ -2,10 +2,10 @@
 
 
 :root {
-  /* Soft High-Fidelity Palette - Inspired by Reference */
-  --bg-primary: #e0e4e7; /* Light grey backdrop */
+  /* Soft High-Fidelity Palette - Fixed "Soft Gold & Chalk" */
+  --bg-primary: #e0e4e7; /* Chalk backdrop */
   --bg-secondary: #f3f5f7;
-  --bg-navbar: #f3f5f7;
+  --bg-navbar: rgba(255, 255, 255, 0.7);
   --bg-card: #f3f5f7;
   --bg-white: #ffffff;
   
@@ -16,10 +16,11 @@
   /* Primary accents */
   --accent-gold: #e9b949; 
   --accent-gold-hover: #d4a73d;
-  --accent-primary: #1a1a1a; /* Dark for high contrast */
+  --accent-primary: #1a1a1a; 
   --accent-success: #10b981;
   --accent-danger: #ef4444;
   --accent-warning: #f59e0b;
+  --accent-info: #3b82f6;
   
   --border-color: #d1d5db;
   --border-light: rgba(255, 255, 255, 0.8);
@@ -30,7 +31,7 @@
   --radius-md: 16px;
   
   --shadow-premium: inset 0 1px 1px rgba(255,255,255,0.8), 0 10px 30px rgba(0, 0, 0, 0.05);
-  --shadow-pill: 0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-pill: 0 4px 24px rgba(0, 0, 0, 0.04);
   --accent-gradient: linear-gradient(135deg, #e9b949 0%, #d4a73d 100%);
 }
 
