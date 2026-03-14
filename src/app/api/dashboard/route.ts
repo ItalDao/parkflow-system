@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
+import bcrypt from 'bcryptjs';
 
 function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -13,7 +14,28 @@ function normalizePlate(input: string) {
   return String(input || '').trim().toUpperCase();
 }
 
-async function resolveParkingLotIdForUser(userId: string, role: string): Promise<string | null> {
+async function resolveParkingLotIdForUser(
+  userId: string,
+  role: string,
+  requestedLotId?: string | null
+): Promise<string | null> {
+  // Optional override (used by SUPER_ADMIN and by ADMIN when it matches their assigned lot)
+  if (requestedLotId) {
+    if (role === 'SUPER_ADMIN') {
+      const lot = await prisma.parkingLot.findUnique({ where: { id: requestedLotId }, select: { id: true } });
+      return lot?.id ?? null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { assignedLotId: true, parkingLot: { select: { id: true } } },
+    });
+    const allowedLotId = user?.parkingLot?.id ?? user?.assignedLotId ?? null;
+    if (allowedLotId && allowedLotId === requestedLotId) return requestedLotId;
+    return null;
+  }
+
+  // Default behavior (backwards-compatible)
   if (role === 'SUPER_ADMIN') {
     const lot = await prisma.parkingLot.findFirst({ select: { id: true } });
     return lot?.id ?? null;
@@ -46,7 +68,7 @@ async function setSpaceStatusWithHistory(
   });
 }
 
-async function createAuditLog(userId: string, action: string, entity: string, entityId?: string, details?: any) {
+async function createAuditLog(userId: string, action: string, entity: string, entityId?: string, details?: unknown) {
   try {
     await prisma.auditLog.create({
       data: {
@@ -73,7 +95,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
-    const parkingLotId = await resolveParkingLotIdForUser(user.userId, user.role);
+    const requestedLotId = searchParams.get('parkingLotId');
+    const parkingLotId = await resolveParkingLotIdForUser(user.userId, user.role, requestedLotId);
+    if (requestedLotId && !parkingLotId) {
+      return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+    }
 
     // Dashboard stats
     if (resource === 'stats') {
@@ -281,10 +307,38 @@ export async function GET(request: NextRequest) {
       if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
+
+      const requestedUsersLotId = searchParams.get('parkingLotId');
+      const contextLotId = await resolveParkingLotIdForUser(user.userId, user.role, requestedUsersLotId);
+      if (requestedUsersLotId && !contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      // SUPER_ADMIN can see all (or filter by parkingLotId). ADMIN only sees their own lot.
+      const effectiveLotId = user.role === 'SUPER_ADMIN' ? contextLotId : (await resolveParkingLotIdForUser(user.userId, user.role));
+      const whereClause = effectiveLotId
+        ? {
+            OR: [
+              { assignedLotId: effectiveLotId },
+              { parkingLot: { is: { id: effectiveLotId } } },
+            ],
+          }
+        : undefined;
+
       const users = await prisma.user.findMany({
+        where: user.role === 'SUPER_ADMIN' ? whereClause : whereClause,
         select: {
-          id: true, email: true, firstName: true, lastName: true,
-          role: true, isActive: true, lastLoginAt: true, createdAt: true,
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true,
+          createdAt: true,
+          assignedLotId: true,
+          assignedLot: { select: { id: true, name: true } },
+          parkingLot: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -412,6 +466,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { resource } = body;
 
+    const requestedLotId: string | null = body.parkingLotId ?? body.data?.parkingLotId ?? null;
+    const contextLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role, requestedLotId);
+    if (requestedLotId && !contextLotId) {
+      return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+    }
+
     // Security Hardening
     if (tokenUser.role === 'OPERATOR' && ['user', 'rate', 'seed'].includes(resource)) {
       return NextResponse.json({ error: 'Operación restringida a Administradores' }, { status: 403 });
@@ -420,7 +480,7 @@ export async function POST(request: NextRequest) {
     // Booking Logic for Reservation Module
     if (resource === 'booking') {
       const { plate, vehicleType, arriveTime, exitTime, spaceId } = body;
-      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLotId = contextLotId;
       const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero' }, { status: 400 });
 
@@ -461,7 +521,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Vehículo en lista negra: ' + vehicle.blacklistReason }, { status: 403 });
       }
 
-      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLotId = contextLotId;
       const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
 
@@ -614,7 +674,7 @@ export async function POST(request: NextRequest) {
     // Open shift
     if (resource === 'open-shift') {
       const { initialCash } = body;
-      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLotId = contextLotId;
       const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
 
@@ -677,16 +737,76 @@ export async function POST(request: NextRequest) {
       if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      const { email, password, firstName, lastName, role } = body;
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash(password || '123456', 10);
-      
-      const user = await prisma.user.create({
-        data: { email, password: hashedPassword, firstName, lastName, role: role || 'OPERATOR' }
+
+      const email = String(body.email || '').trim().toLowerCase();
+      const password = String(body.password || '123456');
+      const firstName = String(body.firstName || '').trim();
+      const lastName = String(body.lastName || '').trim();
+      const requestedRole = String(body.role || 'OPERATOR').trim();
+      const requestedAssignedLotId = body.assignedLotId ? String(body.assignedLotId) : null;
+
+      if (!email || !firstName || !lastName) {
+        return NextResponse.json({ error: 'Email, nombre y apellido son requeridos' }, { status: 400 });
+      }
+
+      // RBAC: ADMIN can create only operators (within their lot)
+      if (tokenUser.role === 'ADMIN' && requestedRole !== 'OPERATOR') {
+        return NextResponse.json({ error: 'Admin solo puede crear Operadores' }, { status: 403 });
+      }
+      if (tokenUser.role !== 'SUPER_ADMIN' && requestedRole === 'SUPER_ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      const adminContextLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const assignedLotId = tokenUser.role === 'ADMIN'
+        ? adminContextLotId
+        : (requestedAssignedLotId || adminContextLotId);
+
+      if ((requestedRole === 'OPERATOR' || requestedRole === 'ADMIN') && !assignedLotId) {
+        return NextResponse.json({ error: 'Debe asignar una sede' }, { status: 400 });
+      }
+
+      // If SUPER_ADMIN specifies a lot, verify it exists
+      if (tokenUser.role === 'SUPER_ADMIN' && assignedLotId) {
+        const lot = await prisma.parkingLot.findUnique({ where: { id: assignedLotId }, select: { id: true } });
+        if (!lot) return NextResponse.json({ error: 'Sede no encontrada' }, { status: 404 });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const created = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            firstName,
+            lastName,
+            role: requestedRole,
+            assignedLotId: requestedRole === 'OPERATOR' ? assignedLotId : null,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            assignedLotId: true,
+          },
+        });
+
+        if (requestedRole === 'ADMIN' && assignedLotId) {
+          // Ensure admin owns only one lot: clear any previous assignment
+          await tx.parkingLot.updateMany({ where: { adminId: newUser.id }, data: { adminId: null } });
+          await tx.parkingLot.update({ where: { id: assignedLotId }, data: { adminId: newUser.id } });
+        }
+
+        return newUser;
       });
-      
-      await createAuditLog(tokenUser.userId, 'CREATE_USER', 'User', user.id, { email, role });
-      return NextResponse.json(user);
+
+      await createAuditLog(tokenUser.userId, 'CREATE_USER', 'User', created.id, { email, role: requestedRole, assignedLotId });
+      return NextResponse.json(created);
     }
 
     // Create rate
@@ -694,13 +814,100 @@ export async function POST(request: NextRequest) {
       if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
-      const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
+      const parkingLotId = contextLotId;
+      if (!parkingLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
       const rate = await prisma.rate.create({
-        data: { ...body.data, parkingLotId: parkingLot?.id }
+        data: { ...body.data, parkingLotId }
       });
       await createAuditLog(tokenUser.userId, 'CREATE_RATE', 'Rate', rate.id, body.data);
       return NextResponse.json(rate);
+    }
+
+    // Create zone (and optional spaces)
+    if (resource === 'zones') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const parkingLotId = contextLotId;
+      if (!parkingLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
+
+      const name = String(body.data?.name || '').trim();
+      const type = body.data?.type;
+      const spacesCountRaw = body.data?.spacesCount;
+      const floorRaw = body.data?.floor;
+      const spacePrefixRaw = body.data?.spacePrefix;
+      const spacesCount = typeof spacesCountRaw === 'number' ? spacesCountRaw : Number(spacesCountRaw || 0);
+      const floor = typeof floorRaw === 'number' ? floorRaw : Number(floorRaw || 1);
+      const spacePrefix = String(spacePrefixRaw || 'S').trim().toUpperCase();
+
+      if (!name) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
+      if (!type) return NextResponse.json({ error: 'Tipo requerido' }, { status: 400 });
+
+      const result = await prisma.$transaction(async (tx) => {
+        const zone = await tx.zone.create({
+          data: { name, type, parkingLotId },
+        });
+
+        const count = Number.isFinite(spacesCount) ? Math.max(0, Math.floor(spacesCount)) : 0;
+        const normalizedFloor = Number.isFinite(floor) ? Math.max(1, Math.floor(floor)) : 1;
+
+        if (count > 0) {
+          const spaces = Array.from({ length: count }).map((_, idx) => ({
+            number: `${spacePrefix}-${String(idx + 1).padStart(3, '0')}`,
+            floor: normalizedFloor,
+            zoneId: zone.id,
+          }));
+          await tx.space.createMany({ data: spaces });
+          await tx.parkingLot.update({ where: { id: parkingLotId }, data: { totalSpaces: { increment: count } } });
+        }
+
+        const zoneWithCount = await tx.zone.findUnique({
+          where: { id: zone.id },
+          include: { _count: { select: { spaces: true } } },
+        });
+        return zoneWithCount ?? zone;
+      });
+
+      await createAuditLog(tokenUser.userId, 'CREATE_ZONE', 'Zone', result.id, { name, type, spacesCount, floor, parkingLotId });
+      return NextResponse.json(result);
+    }
+
+    // Create parking lot (SUPER_ADMIN only)
+    if (resource === 'lots') {
+      if (tokenUser.role !== 'SUPER_ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      const data = body.data || {};
+      const name = String(data.name || '').trim();
+      const address = String(data.address || '').trim();
+      const city = String(data.city || '').trim();
+      const phone = data.phone ? String(data.phone).trim() : null;
+      const totalSpacesRaw = data.totalSpaces;
+      const totalSpaces = typeof totalSpacesRaw === 'number' ? totalSpacesRaw : Number(totalSpacesRaw || 0);
+
+      if (!name) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
+      if (!address) return NextResponse.json({ error: 'Dirección requerida' }, { status: 400 });
+      if (!city) return NextResponse.json({ error: 'Ciudad requerida' }, { status: 400 });
+
+      const lot = await prisma.parkingLot.create({
+        data: {
+          name,
+          address,
+          city,
+          phone,
+          totalSpaces: Number.isFinite(totalSpaces) ? Math.max(0, Math.floor(totalSpaces)) : 0,
+          openTime: data.openTime || '06:00',
+          closeTime: data.closeTime || '22:00',
+          is24Hours: Boolean(data.is24Hours),
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+          gracePeriod: typeof data.gracePeriod === 'number' ? data.gracePeriod : undefined,
+          lostTicketFee: typeof data.lostTicketFee === 'number' ? data.lostTicketFee : undefined,
+        },
+      });
+
+      await createAuditLog(tokenUser.userId, 'CREATE_PARKING_LOT', 'ParkingLot', lot.id, { name, city, totalSpaces: lot.totalSpaces });
+      return NextResponse.json(lot);
     }
 
     return NextResponse.json({ error: 'Recurso no válido' }, { status: 400 });
@@ -719,23 +926,136 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { resource, id, data } = body;
 
-    if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 });
+    const requestedLotId: string | null = body.parkingLotId ?? body.data?.parkingLotId ?? null;
+    const contextLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role, requestedLotId);
+    if (requestedLotId && !contextLotId) {
+      return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+    }
+
+    // Notifications: user-scoped updates (all roles)
+    if (resource === 'notifications') {
+      // Individual update
+      if (id) {
+        const note = await prisma.notification.update({
+          where: { id, userId: tokenUser.userId },
+          data: { isRead: data.isRead },
+        });
+        return NextResponse.json(note);
+      }
+
+      // Bulk actions
+      if (data?.action === 'markAllRead') {
+        const result = await prisma.notification.updateMany({
+          where: { userId: tokenUser.userId, isRead: false },
+          data: { isRead: true },
+        });
+        return NextResponse.json({ success: true, updated: result.count });
+      }
+
+      return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
+    }
+
+    // Extend Duration Logic (demo-safe; audit only)
+    if (resource === 'extend') {
+      const { ticketId, additionalHours } = body;
+      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+      if (!ticket) return NextResponse.json({ error: 'Ticket no encontrado' }, { status: 404 });
+
+      await createAuditLog(tokenUser.userId, 'EXTEND_STAY', 'Ticket', ticketId, { additionalHours });
+      return NextResponse.json({ success: true, message: 'Estancia extendida exitosamente' });
     }
 
     if (resource === 'users') {
-      const user = await prisma.user.update({
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 });
+      }
+      if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+
+      const target = await prisma.user.findUnique({
         where: { id },
-        data: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          role: data.role,
-          isActive: data.isActive,
+        select: {
+          id: true,
+          role: true,
+          assignedLotId: true,
+          parkingLot: { select: { id: true } },
         },
-        select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true }
       });
+      if (!target) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+
+      // ADMIN restrictions
+      if (tokenUser.role === 'ADMIN') {
+        if (target.role === 'SUPER_ADMIN') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+        const adminLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+        const targetLotId = target.parkingLot?.id ?? target.assignedLotId ?? null;
+        if (adminLotId && targetLotId && adminLotId !== targetLotId) {
+          return NextResponse.json({ error: 'No autorizado para este usuario' }, { status: 403 });
+        }
+
+        // ADMIN can only update basic fields & active flag
+        const updated = await prisma.user.update({
+          where: { id },
+          data: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            isActive: data.isActive,
+          },
+          select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, assignedLotId: true },
+        });
+        await createAuditLog(tokenUser.userId, 'UPDATE_USER', 'User', id, { adminLimited: true, data });
+        return NextResponse.json(updated);
+      }
+
+      // SUPER_ADMIN full update (including assignedLotId)
+      const nextRole = data.role;
+      const requestedAssignedLotId = data.assignedLotId ? String(data.assignedLotId) : null;
+
+      if (requestedAssignedLotId) {
+        const lot = await prisma.parkingLot.findUnique({ where: { id: requestedAssignedLotId }, select: { id: true } });
+        if (!lot) return NextResponse.json({ error: 'Sede no encontrada' }, { status: 404 });
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        // If demoting from ADMIN, clear admin assignment.
+        if (target.role === 'ADMIN' && nextRole !== 'ADMIN') {
+          await tx.parkingLot.updateMany({ where: { adminId: id }, data: { adminId: null } });
+        }
+        // If promoting to ADMIN, assign admin to requested lot.
+        if (nextRole === 'ADMIN' && requestedAssignedLotId) {
+          await tx.parkingLot.updateMany({ where: { adminId: id }, data: { adminId: null } });
+          await tx.parkingLot.update({ where: { id: requestedAssignedLotId }, data: { adminId: id } });
+        }
+
+        const u = await tx.user.update({
+          where: { id },
+          data: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            role: nextRole,
+            isActive: data.isActive,
+            assignedLotId: nextRole === 'OPERATOR' ? requestedAssignedLotId : null,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            assignedLotId: true,
+            assignedLot: { select: { id: true, name: true } },
+            parkingLot: { select: { id: true, name: true } },
+          },
+        });
+        return u;
+      });
+
       await createAuditLog(tokenUser.userId, 'UPDATE_USER', 'User', id, data);
-      return NextResponse.json(user);
+      return NextResponse.json(updated);
+    }
+
+    if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 });
     }
 
     if (resource === 'vehicles') {
@@ -767,7 +1087,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (resource === 'parking-lot') {
-      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLotId = contextLotId;
       if (!parkingLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
 
       // ADMIN puede modificar su sede; SUPER_ADMIN puede modificar cualquier sede (por ahora: la del contexto)
@@ -788,39 +1108,6 @@ export async function PUT(request: NextRequest) {
       });
       await createAuditLog(tokenUser.userId, 'UPDATE_PARKING_LOT', 'ParkingLot', parkingLotId, data);
       return NextResponse.json(updated);
-    }
-
-    // Extend Duration Logic
-    if (resource === 'extend') {
-      const { ticketId, additionalHours } = body;
-      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-      if (!ticket) return NextResponse.json({ error: 'Ticket no encontrado' }, { status: 404 });
-      
-      // We just log the extension in this demo, real logic would update expiry/rate
-      await createAuditLog(tokenUser.userId, 'EXTEND_STAY', 'Ticket', ticketId, { additionalHours });
-      return NextResponse.json({ success: true, message: 'Estancia extendida exitosamente' });
-    }
-
-    if (resource === 'notifications') {
-      // Individual update
-      if (id) {
-        const note = await prisma.notification.update({
-          where: { id, userId: tokenUser.userId },
-          data: { isRead: data.isRead }
-        });
-        return NextResponse.json(note);
-      }
-
-      // Bulk actions
-      if (data?.action === 'markAllRead') {
-        const result = await prisma.notification.updateMany({
-          where: { userId: tokenUser.userId, isRead: false },
-          data: { isRead: true },
-        });
-        return NextResponse.json({ success: true, updated: result.count });
-      }
-
-      return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
     }
 
     return NextResponse.json({ error: 'Recurso no válido' }, { status: 400 });

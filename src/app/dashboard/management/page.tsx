@@ -1,55 +1,481 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { 
-  PlusCircle, 
-  Settings, 
-  Trash2, 
-  Edit, 
-  Layers, 
-  ParkingCircle, 
-  Tag, 
-  MoreHorizontal,
-  FolderOpen,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  User,
-  Database,
-  Search
+import { useEffect, useMemo, useState } from 'react';
+import {
+   PlusCircle,
+   Settings,
+   Trash2,
+   Edit,
+   Layers,
+   ParkingCircle,
+   Tag,
+   MoreHorizontal,
+   MapPin,
+   Clock,
+   User,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR' | 'CUSTOMER' | string;
+
+type Zone = {
+   id: string;
+   name: string;
+   type: string;
+   _count?: { spaces: number };
+};
+
+type Rate = {
+   id: string;
+   name: string;
+   vehicleType: string;
+   modality: string;
+   price: number;
+   isActive: boolean;
+   zone?: { id: string; name: string } | null;
+};
+
+type ParkingLot = {
+   id: string;
+   name: string;
+   address: string;
+   city: string;
+   phone?: string | null;
+   totalSpaces: number;
+   openTime: string;
+   closeTime: string;
+   is24Hours: boolean;
+   isActive: boolean;
+   gracePeriod: number;
+   lostTicketFee: number;
+};
+
+type Subscription = {
+   id: string;
+   type: string;
+   status: string;
+   endDate: string;
+   user: { firstName: string; lastName: string; email: string };
+   vehicle: { plate: string; type: string; brand?: string | null };
+};
+
+function safeDecodeJwt(token: string | null): { role?: Role; userId?: string } {
+   try {
+      if (!token) return {};
+      const part = token.split('.')[1];
+      if (!part) return {};
+      let normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4;
+      if (pad) normalized += '='.repeat(4 - pad);
+      const decoded = atob(normalized);
+      return JSON.parse(decoded);
+   } catch {
+      return {};
+   }
+}
+
 export default function ManagementPage() {
   const [activeTab, setActiveTab] = useState<'zones' | 'rates' | 'lots' | 'customers' | 'config'>('zones');
-  const [zones, setZones] = useState<any[]>([]);
-  const [rates, setRates] = useState<any[]>([]);
-  const [lots, setLots] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [config, setConfig] = useState<any>({ gracePeriod: 15, lostTicketPenalty: 50000, multiSede: true });
+   const [zones, setZones] = useState<Zone[]>([]);
+   const [rates, setRates] = useState<Rate[]>([]);
+   const [lots, setLots] = useState<ParkingLot[]>([]);
+   const [customers, setCustomers] = useState<Subscription[]>([]);
+   const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
+   const [lotDetails, setLotDetails] = useState<ParkingLot | null>(null);
+   const [configDraft, setConfigDraft] = useState<{ gracePeriod: string; lostTicketFee: string }>({
+      gracePeriod: '15',
+      lostTicketFee: '50000',
+   });
+   const [role, setRole] = useState<Role>('OPERATOR');
   const [loading, setLoading] = useState(true);
-  const [showLotModal, setShowLotModal] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const headers = { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
-      const [zRes, rRes, lRes, cRes] = await Promise.all([
-        fetch('/api/dashboard?resource=zones', { headers }),
-        fetch('/api/dashboard?resource=rates', { headers }),
-        fetch('/api/dashboard?resource=lots', { headers }),
-        fetch('/api/dashboard?resource=subscriptions', { headers })
-      ]);
-      
-      if (zRes.ok) setZones(await zRes.json());
-      if (rRes.ok) setRates(await rRes.json());
-      if (lRes.ok) setLots(await lRes.json());
-      if (cRes.ok) setCustomers(await cRes.json());
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  }, []);
+   const [showCreateZone, setShowCreateZone] = useState(false);
+   const [showCreateRate, setShowCreateRate] = useState(false);
+   const [showEditRate, setShowEditRate] = useState(false);
+   const [showCreateLot, setShowCreateLot] = useState(false);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+   const [zoneDraft, setZoneDraft] = useState({ name: '', type: 'COVERED', spacesCount: '0', floor: '1', spacePrefix: 'S' });
+   const [rateDraft, setRateDraft] = useState({ name: '', vehicleType: 'CAR', modality: 'HOURLY', price: '', zoneId: '' });
+   const [rateEdit, setRateEdit] = useState<{ id: string; name: string; price: string; isActive: boolean } | null>(null);
+   const [lotDraft, setLotDraft] = useState({
+      name: '',
+      address: '',
+      city: '',
+      phone: '',
+      totalSpaces: '0',
+      openTime: '06:00',
+      closeTime: '22:00',
+      is24Hours: false,
+      isActive: true,
+      gracePeriod: '15',
+      lostTicketFee: '50000',
+   });
+
+   const canManage = role === 'SUPER_ADMIN' || role === 'ADMIN';
+   const canCreateLots = role === 'SUPER_ADMIN';
+
+   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('accessToken')}` });
+
+   const zoneTypeOptions = useMemo(
+      () => [
+         { value: 'COVERED', label: 'Cubierta' },
+         { value: 'UNCOVERED', label: 'Descubierta' },
+         { value: 'VIP', label: 'VIP' },
+         { value: 'MOTORCYCLE', label: 'Motos' },
+         { value: 'DISABLED', label: 'Discapacidad' },
+         { value: 'ELECTRIC', label: 'Eléctrico' },
+      ],
+      []
+   );
+
+   const vehicleTypeOptions = useMemo(
+      () => [
+         { value: 'CAR', label: 'Carro' },
+         { value: 'MOTORCYCLE', label: 'Moto' },
+         { value: 'TRUCK', label: 'Camión' },
+         { value: 'BUS', label: 'Bus' },
+      ],
+      []
+   );
+
+   const modalityOptions = useMemo(
+      () => [
+         { value: 'HOURLY', label: 'Por Hora' },
+         { value: 'FRACTIONAL', label: 'Fraccionado' },
+         { value: 'DAILY', label: 'Diario' },
+         { value: 'MONTHLY', label: 'Mensual' },
+         { value: 'NIGHTLY', label: 'Nocturno' },
+      ],
+      []
+   );
+
+   const loadLotsAndContext = async () => {
+      setLoading(true);
+      try {
+         const token = localStorage.getItem('accessToken');
+         const decoded = safeDecodeJwt(token);
+         setRole(decoded.role || 'OPERATOR');
+
+         const headers = authHeaders();
+         const lRes = await fetch('/api/dashboard?resource=lots', { headers });
+         const lotsData: ParkingLot[] = lRes.ok ? await lRes.json() : [];
+         setLots(lotsData);
+
+         const stored = localStorage.getItem('mgmtSelectedLotId');
+         const nextLotId = stored && lotsData.some(l => l.id === stored) ? stored : lotsData[0]?.id ?? null;
+
+         if (!nextLotId) {
+            setSelectedLotId(null);
+            setZones([]);
+            setRates([]);
+            setLotDetails(null);
+            return;
+         }
+         setSelectedLotId(nextLotId);
+         localStorage.setItem('mgmtSelectedLotId', nextLotId);
+
+         const query = `&parkingLotId=${encodeURIComponent(nextLotId)}`;
+         const [zRes, rRes, pRes, cRes] = await Promise.all([
+            fetch(`/api/dashboard?resource=zones${query}`, { headers }),
+            fetch(`/api/dashboard?resource=rates${query}`, { headers }),
+            fetch(`/api/dashboard?resource=parking-lot${query}`, { headers }),
+            fetch('/api/dashboard?resource=subscriptions', { headers }),
+         ]);
+
+         if (zRes.ok) setZones(await zRes.json());
+         if (rRes.ok) setRates(await rRes.json());
+         if (pRes.ok) {
+            const lot = await pRes.json();
+            setLotDetails(lot);
+            setConfigDraft({ gracePeriod: String(lot?.gracePeriod ?? 15), lostTicketFee: String(lot?.lostTicketFee ?? 50000) });
+         }
+         if (cRes.ok) setCustomers(await cRes.json());
+      } catch (err) {
+         console.error(err);
+      } finally {
+         setLoading(false);
+      }
+   };
+
+   const reloadContext = async (lotId: string) => {
+      try {
+         const headers = authHeaders();
+         const query = `&parkingLotId=${encodeURIComponent(lotId)}`;
+         const [zRes, rRes, pRes] = await Promise.all([
+            fetch(`/api/dashboard?resource=zones${query}`, { headers }),
+            fetch(`/api/dashboard?resource=rates${query}`, { headers }),
+            fetch(`/api/dashboard?resource=parking-lot${query}`, { headers }),
+         ]);
+         if (zRes.ok) setZones(await zRes.json());
+         if (rRes.ok) setRates(await rRes.json());
+         if (pRes.ok) {
+            const lot = await pRes.json();
+            setLotDetails(lot);
+            setConfigDraft({ gracePeriod: String(lot?.gracePeriod ?? 15), lostTicketFee: String(lot?.lostTicketFee ?? 50000) });
+         }
+      } catch (err) {
+         console.error(err);
+      }
+   };
+
+   useEffect(() => {
+      loadLotsAndContext();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+
+   const handleNewRecord = () => {
+      if (activeTab === 'lots') {
+         if (!canCreateLots) return alert('Solo SuperAdmin puede crear sedes');
+         setShowCreateLot(true);
+         return;
+      }
+      if (!canManage) return alert('Operación restringida a administradores');
+      if (activeTab === 'zones') {
+         setZoneDraft({ name: '', type: 'COVERED', spacesCount: '0', floor: '1', spacePrefix: 'S' });
+         setShowCreateZone(true);
+         return;
+      }
+      if (activeTab === 'rates') {
+         setRateDraft({ name: '', vehicleType: 'CAR', modality: 'HOURLY', price: '', zoneId: '' });
+         setShowCreateRate(true);
+         return;
+      }
+      alert('Este módulo se completa en la siguiente fase.');
+   };
+
+   const handleLotChange = async (nextLotId: string) => {
+      setSelectedLotId(nextLotId);
+      localStorage.setItem('mgmtSelectedLotId', nextLotId);
+      await reloadContext(nextLotId);
+   };
+
+   const submitCreateZone = async () => {
+      if (!selectedLotId) return;
+      const name = zoneDraft.name.trim();
+      if (!name) return alert('Nombre requerido');
+
+      const spacesCount = Number(zoneDraft.spacesCount || 0);
+      const floor = Number(zoneDraft.floor || 1);
+
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'zones',
+               parkingLotId: selectedLotId,
+               data: {
+                  name,
+                  type: zoneDraft.type,
+                  spacesCount: Number.isFinite(spacesCount) ? spacesCount : 0,
+                  floor: Number.isFinite(floor) ? floor : 1,
+                  spacePrefix: zoneDraft.spacePrefix,
+               },
+            }),
+         });
+
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo crear la zona');
+         }
+
+         setShowCreateZone(false);
+         await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         alert('Error creando zona');
+      }
+   };
+
+   const submitCreateRate = async () => {
+      if (!selectedLotId) return;
+      const name = rateDraft.name.trim();
+      const price = Number(rateDraft.price);
+      if (!name) return alert('Nombre requerido');
+      if (!Number.isFinite(price) || price <= 0) return alert('Precio inválido');
+
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'rates',
+               parkingLotId: selectedLotId,
+               data: {
+                  name,
+                  vehicleType: rateDraft.vehicleType,
+                  modality: rateDraft.modality,
+                  price,
+                  zoneId: rateDraft.zoneId || null,
+                  isActive: true,
+               },
+            }),
+         });
+
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo crear la tarifa');
+         }
+
+         setShowCreateRate(false);
+         await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         alert('Error creando tarifa');
+      }
+   };
+
+   const openEditRate = (rate: Rate) => {
+      if (!canManage) return;
+      setRateEdit({ id: rate.id, name: rate.name, price: String(rate.price ?? 0), isActive: Boolean(rate.isActive) });
+      setShowEditRate(true);
+   };
+
+   const submitEditRate = async () => {
+      if (!rateEdit) return;
+      const price = Number(rateEdit.price);
+      if (!Number.isFinite(price) || price <= 0) return alert('Precio inválido');
+
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'rates',
+               id: rateEdit.id,
+               data: {
+                  name: rateEdit.name,
+                  price,
+                  isActive: rateEdit.isActive,
+               },
+            }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo actualizar la tarifa');
+         }
+         setShowEditRate(false);
+         setRateEdit(null);
+         if (selectedLotId) await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         alert('Error actualizando tarifa');
+      }
+   };
+
+   const deactivateRate = async (rate: Rate) => {
+      if (!canManage) return;
+      const ok = confirm(`¿${rate.isActive ? 'Desactivar' : 'Activar'} la tarifa "${rate.name}"?`);
+      if (!ok) return;
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'rates',
+               id: rate.id,
+               data: {
+                  name: rate.name,
+                  price: rate.price,
+                  isActive: !rate.isActive,
+               },
+            }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo actualizar la tarifa');
+         }
+         if (selectedLotId) await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         alert('Error actualizando tarifa');
+      }
+   };
+
+   const saveConfig = async () => {
+      if (!selectedLotId) return;
+      if (!canManage) return alert('Operación restringida a administradores');
+      const gracePeriod = Number(configDraft.gracePeriod);
+      const lostTicketFee = Number(configDraft.lostTicketFee);
+      if (!Number.isFinite(gracePeriod) || gracePeriod < 0) return alert('Tiempo de gracia inválido');
+      if (!Number.isFinite(lostTicketFee) || lostTicketFee < 0) return alert('Penalidad inválida');
+
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'parking-lot',
+               parkingLotId: selectedLotId,
+               data: {
+                  gracePeriod,
+                  lostTicketFee,
+               },
+            }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo guardar la configuración');
+         }
+         await reloadContext(selectedLotId);
+         alert('Configuración guardada');
+      } catch (err) {
+         console.error(err);
+         alert('Error guardando configuración');
+      }
+   };
+
+   const submitCreateLot = async () => {
+      if (!canCreateLots) return;
+      const name = lotDraft.name.trim();
+      const address = lotDraft.address.trim();
+      const city = lotDraft.city.trim();
+      const totalSpaces = Number(lotDraft.totalSpaces);
+      const gracePeriod = Number(lotDraft.gracePeriod);
+      const lostTicketFee = Number(lotDraft.lostTicketFee);
+
+      if (!name || !address || !city) return alert('Nombre, dirección y ciudad son requeridos');
+      if (!Number.isFinite(totalSpaces) || totalSpaces < 0) return alert('Capacidad inválida');
+
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               resource: 'lots',
+               data: {
+                  name,
+                  address,
+                  city,
+                  phone: lotDraft.phone || null,
+                  totalSpaces,
+                  openTime: lotDraft.openTime,
+                  closeTime: lotDraft.closeTime,
+                  is24Hours: lotDraft.is24Hours,
+                  isActive: lotDraft.isActive,
+                  gracePeriod: Number.isFinite(gracePeriod) ? gracePeriod : 15,
+                  lostTicketFee: Number.isFinite(lostTicketFee) ? lostTicketFee : 50000,
+               },
+            }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return alert(data.error || 'No se pudo crear la sede');
+         }
+
+         const created = await res.json();
+         setShowCreateLot(false);
+         await loadLotsAndContext();
+
+         if (created?.id) {
+            setActiveTab('zones');
+            await handleLotChange(created.id);
+         }
+      } catch (err) {
+         console.error(err);
+         alert('Error creando sede');
+      }
+   };
 
   if (loading) return <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
@@ -60,22 +486,40 @@ export default function ManagementPage() {
            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Gestión de Infraestructura</h2>
            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Configuración de sedes, zonas y esquemas tarifarios</span>
         </div>
-        <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }}>
-           <PlusCircle size={18} /> Nuevo Registro
-        </button>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+               {lots.length > 1 && activeTab !== 'lots' && (
+                  <div className="white-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                     <MapPin size={16} color="var(--accent-gold)" />
+                     <select
+                        value={selectedLotId || ''}
+                        onChange={(e) => handleLotChange(e.target.value)}
+                        style={{ border: 'none', background: 'transparent', fontWeight: 800, fontSize: '13px', outline: 'none' }}
+                     >
+                        {lots.map(l => (
+                           <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                     </select>
+                  </div>
+               )}
+               <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }} onClick={handleNewRecord}>
+                  <PlusCircle size={18} /> Nuevo Registro
+               </button>
+            </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '8px' }}>
-         {[
-           { id: 'lots', label: 'Sedes', icon: <MapPin size={18} /> },
-           { id: 'zones', label: 'Zonas', icon: <Layers size={18} /> },
-           { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> },
-           { id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> },
-           { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
-         ].map(tab => (
+         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '8px' }}>
+             {(
+                [
+                   { id: 'lots', label: 'Sedes', icon: <MapPin size={18} /> },
+                   { id: 'zones', label: 'Zonas', icon: <Layers size={18} /> },
+                   { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> },
+                   { id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> },
+                   { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
+                ] as const
+             ).map(tab => (
            <button 
              key={tab.id}
-             onClick={() => setActiveTab(tab.id as any)}
+                   onClick={() => setActiveTab(tab.id)}
              style={{ 
                padding: '12px 24px', borderRadius: 'var(--radius-pill)', border: 'none',
                fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s ease',
@@ -93,6 +537,12 @@ export default function ManagementPage() {
       <div className="glass-card" style={{ padding: '40px' }}>
          {activeTab === 'zones' && (
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+             {zones.length === 0 && (
+               <div className="white-card" style={{ padding: '32px' }}>
+                 <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '6px' }}>Sin zonas</h4>
+                 <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Crea la primera zona para comenzar a generar espacios y tarifas.</p>
+               </div>
+             )}
              {zones.map(zone => (
                <div key={zone.id} className="white-card" style={{ padding: '32px', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -102,7 +552,7 @@ export default function ManagementPage() {
                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><MoreHorizontal size={20} /></button>
                   </div>
                   <h4 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '8px' }}>{zone.name}</h4>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '24px' }}>{zone.type} · Piso {zone._count?.spaces > 0 ? 'Múltiple' : '1'}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '24px' }}>{zone.type}</p>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                      <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -128,6 +578,7 @@ export default function ManagementPage() {
                     <th style={{ paddingBottom: '24px' }}>Nombre Tarifa</th>
                     <th>Tipo Vehículo</th>
                     <th>Modalidad</th>
+                              <th>Ámbito</th>
                     <th>Precio</th>
                     <th>Estado</th>
                     <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -144,6 +595,7 @@ export default function ManagementPage() {
                      </td>
                      <td style={{ fontWeight: 700 }}>{rate.vehicleType}</td>
                      <td style={{ fontWeight: 700 }}>{rate.modality}</td>
+                               <td style={{ fontWeight: 700, color: 'var(--text-muted)' }}>{rate.zone?.name ? `Zona: ${rate.zone.name}` : 'Sede completa'}</td>
                      <td style={{ fontSize: '16px', fontWeight: 900 }}>{formatCurrency(rate.price)}</td>
                      <td>
                         <span className={`badge ${rate.isActive ? 'badge-success' : 'badge-danger'}`} style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}>
@@ -152,8 +604,23 @@ export default function ManagementPage() {
                      </td>
                      <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                           <button className="white-card" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><Edit size={16} /></button>
-                           <button className="white-card" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', color: 'var(--accent-danger)' }}><Trash2 size={16} /></button>
+                                        <button
+                                           className="white-card"
+                                           style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: canManage ? 'pointer' : 'not-allowed', opacity: canManage ? 1 : 0.6 }}
+                                           onClick={() => openEditRate(rate)}
+                                           disabled={!canManage}
+                                        >
+                                           <Edit size={16} />
+                                        </button>
+                                        <button
+                                           className="white-card"
+                                           style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: canManage ? 'pointer' : 'not-allowed', color: 'var(--accent-danger)', opacity: canManage ? 1 : 0.6 }}
+                                           onClick={() => deactivateRate(rate)}
+                                           disabled={!canManage}
+                                           title={rate.isActive ? 'Desactivar' : 'Activar'}
+                                        >
+                                           <Trash2 size={16} />
+                                        </button>
                         </div>
                      </td>
                    </tr>
@@ -207,15 +674,25 @@ export default function ManagementPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
                <div className="white-card" style={{ padding: '32px' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Parámetros Globales</h4>
+                           {lotDetails && (
+                              <div className="white-card" style={{ padding: '12px 14px', marginBottom: '16px', background: 'var(--bg-primary)' }}>
+                                 <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sede</div>
+                                 <div style={{ fontSize: '14px', fontWeight: 900 }}>{lotDetails.name}</div>
+                                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{lotDetails.address}, {lotDetails.city}</div>
+                              </div>
+                           )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                      <div>
                         <label className="input-label">Tiempo de Gracia (min)</label>
-                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={config.gracePeriod} onChange={e => setConfig({...config, gracePeriod: e.target.value})} />
+                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={configDraft.gracePeriod} onChange={e => setConfigDraft({ ...configDraft, gracePeriod: e.target.value })} />
                      </div>
                      <div>
                         <label className="input-label">Penalidad Ticket Perdido</label>
-                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={config.lostTicketPenalty} onChange={e => setConfig({...config, lostTicketPenalty: e.target.value})} />
+                        <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={configDraft.lostTicketFee} onChange={e => setConfigDraft({ ...configDraft, lostTicketFee: e.target.value })} />
                      </div>
+                     <button className="btn-primary" style={{ height: '48px' }} onClick={saveConfig} disabled={!canManage}>
+                       {canManage ? 'Guardar Configuración' : 'Solo Admin/SuperAdmin'}
+                     </button>
                   </div>
                </div>
                <div className="white-card" style={{ padding: '32px' }}>
@@ -223,7 +700,7 @@ export default function ManagementPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                          <span style={{ fontSize: '14px', fontWeight: 700 }}>Multi-sede habilitado</span>
-                         <input type="checkbox" checked={config.multiSede} onChange={e => setConfig({...config, multiSede: e.target.checked})} />
+                         <input type="checkbox" checked={lots.length > 1} readOnly />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                          <span style={{ fontSize: '14px', fontWeight: 700 }}>2FA Obligatorio</span>
@@ -271,14 +748,233 @@ export default function ManagementPage() {
                      </div>
                   </div>
 
-                  <button className="btn-primary" style={{ width: '100%', height: '56px', borderRadius: '16px', background: 'var(--text-primary)', color: 'white' }}>
-                    Configurar Sede
-                  </button>
+                           <button
+                              className="btn-primary"
+                              style={{ width: '100%', height: '56px', borderRadius: '16px', background: 'var(--text-primary)', color: 'white' }}
+                              onClick={async () => {
+                                 setActiveTab('config');
+                                 await handleLotChange(lot.id);
+                              }}
+                           >
+                              Configurar Sede
+                           </button>
                </div>
              ))}
            </div>
          )}
       </div>
+
+         {/* Create Zone Modal */}
+         {showCreateZone && (
+            <div className="modal-overlay" onClick={() => setShowCreateZone(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Nueva Zona</h3>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
+                     Crea una zona y (opcional) genera espacios automáticamente.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Nombre</label>
+                        <input className="input-field" value={zoneDraft.name} onChange={e => setZoneDraft({ ...zoneDraft, name: e.target.value })} placeholder="Ej: Zona A" />
+                     </div>
+                     <div>
+                        <label className="input-label">Tipo</label>
+                        <select className="input-field" value={zoneDraft.type} onChange={e => setZoneDraft({ ...zoneDraft, type: e.target.value })}>
+                           {zoneTypeOptions.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                           ))}
+                        </select>
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                     <div>
+                        <label className="input-label">Espacios (opcional)</label>
+                        <input className="input-field" type="number" value={zoneDraft.spacesCount} onChange={e => setZoneDraft({ ...zoneDraft, spacesCount: e.target.value })} placeholder="0" />
+                     </div>
+                     <div>
+                        <label className="input-label">Piso</label>
+                        <input className="input-field" type="number" value={zoneDraft.floor} onChange={e => setZoneDraft({ ...zoneDraft, floor: e.target.value })} />
+                     </div>
+                     <div>
+                        <label className="input-label">Prefijo</label>
+                        <input className="input-field" value={zoneDraft.spacePrefix} onChange={e => setZoneDraft({ ...zoneDraft, spacePrefix: e.target.value })} placeholder="S" />
+                     </div>
+                  </div>
+
+                  <button className="btn-primary" style={{ width: '100%', height: '56px' }} onClick={submitCreateZone}>
+                     Crear Zona
+                  </button>
+               </div>
+            </div>
+         )}
+
+         {/* Create Rate Modal */}
+         {showCreateRate && (
+            <div className="modal-overlay" onClick={() => setShowCreateRate(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Nueva Tarifa</h3>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
+                     Define tarifas por tipo de vehículo y modalidad. Puedes aplicarla a toda la sede o a una zona.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Nombre</label>
+                        <input className="input-field" value={rateDraft.name} onChange={e => setRateDraft({ ...rateDraft, name: e.target.value })} placeholder="Ej: Hora Carro" />
+                     </div>
+                     <div>
+                        <label className="input-label">Precio</label>
+                        <input className="input-field" type="number" value={rateDraft.price} onChange={e => setRateDraft({ ...rateDraft, price: e.target.value })} placeholder="3000" />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                     <div>
+                        <label className="input-label">Tipo de vehículo</label>
+                        <select className="input-field" value={rateDraft.vehicleType} onChange={e => setRateDraft({ ...rateDraft, vehicleType: e.target.value })}>
+                           {vehicleTypeOptions.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                           ))}
+                        </select>
+                     </div>
+                     <div>
+                        <label className="input-label">Modalidad</label>
+                        <select className="input-field" value={rateDraft.modality} onChange={e => setRateDraft({ ...rateDraft, modality: e.target.value })}>
+                           {modalityOptions.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                           ))}
+                        </select>
+                     </div>
+                     <div>
+                        <label className="input-label">Ámbito</label>
+                        <select className="input-field" value={rateDraft.zoneId} onChange={e => setRateDraft({ ...rateDraft, zoneId: e.target.value })}>
+                           <option value="">Sede completa</option>
+                           {zones.map(z => (
+                              <option key={z.id} value={z.id}>{z.name}</option>
+                           ))}
+                        </select>
+                     </div>
+                  </div>
+
+                  <button className="btn-primary" style={{ width: '100%', height: '56px' }} onClick={submitCreateRate}>
+                     Crear Tarifa
+                  </button>
+               </div>
+            </div>
+         )}
+
+         {/* Edit Rate Modal */}
+         {showEditRate && rateEdit && (
+            <div className="modal-overlay" onClick={() => setShowEditRate(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Editar Tarifa</h3>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
+                     Ajusta nombre, precio y estado.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Nombre</label>
+                        <input className="input-field" value={rateEdit.name} onChange={e => setRateEdit({ ...rateEdit, name: e.target.value })} />
+                     </div>
+                     <div>
+                        <label className="input-label">Precio</label>
+                        <input className="input-field" type="number" value={rateEdit.price} onChange={e => setRateEdit({ ...rateEdit, price: e.target.value })} />
+                     </div>
+                  </div>
+
+                  <div className="white-card" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                     <span style={{ fontSize: '13px', fontWeight: 800 }}>Tarifa activa</span>
+                     <input type="checkbox" checked={rateEdit.isActive} onChange={e => setRateEdit({ ...rateEdit, isActive: e.target.checked })} />
+                  </div>
+
+                  <button className="btn-primary" style={{ width: '100%', height: '56px' }} onClick={submitEditRate}>
+                     Guardar Cambios
+                  </button>
+               </div>
+            </div>
+         )}
+
+         {/* Create Lot Modal */}
+         {showCreateLot && (
+            <div className="modal-overlay" onClick={() => setShowCreateLot(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Nueva Sede</h3>
+                  <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
+                     Disponible solo para SuperAdmin.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Nombre</label>
+                        <input className="input-field" value={lotDraft.name} onChange={e => setLotDraft({ ...lotDraft, name: e.target.value })} placeholder="Ej: Sede Centro" />
+                     </div>
+                     <div>
+                        <label className="input-label">Teléfono</label>
+                        <input className="input-field" value={lotDraft.phone} onChange={e => setLotDraft({ ...lotDraft, phone: e.target.value })} placeholder="Opcional" />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Dirección</label>
+                        <input className="input-field" value={lotDraft.address} onChange={e => setLotDraft({ ...lotDraft, address: e.target.value })} placeholder="Calle 123 #45-67" />
+                     </div>
+                     <div>
+                        <label className="input-label">Ciudad</label>
+                        <input className="input-field" value={lotDraft.city} onChange={e => setLotDraft({ ...lotDraft, city: e.target.value })} placeholder="Bogotá" />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Capacidad inicial</label>
+                        <input className="input-field" type="number" value={lotDraft.totalSpaces} onChange={e => setLotDraft({ ...lotDraft, totalSpaces: e.target.value })} />
+                     </div>
+                     <div>
+                        <label className="input-label">Apertura</label>
+                        <input className="input-field" value={lotDraft.openTime} onChange={e => setLotDraft({ ...lotDraft, openTime: e.target.value })} placeholder="06:00" />
+                     </div>
+                     <div>
+                        <label className="input-label">Cierre</label>
+                        <input className="input-field" value={lotDraft.closeTime} onChange={e => setLotDraft({ ...lotDraft, closeTime: e.target.value })} placeholder="22:00" />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                     <div className="white-card" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 800 }}>24 Horas</span>
+                        <input type="checkbox" checked={lotDraft.is24Hours} onChange={e => setLotDraft({ ...lotDraft, is24Hours: e.target.checked })} />
+                     </div>
+                     <div className="white-card" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 800 }}>Activa</span>
+                        <input type="checkbox" checked={lotDraft.isActive} onChange={e => setLotDraft({ ...lotDraft, isActive: e.target.checked })} />
+                     </div>
+                     <div>
+                        <label className="input-label">Gracia (min)</label>
+                        <input className="input-field" type="number" value={lotDraft.gracePeriod} onChange={e => setLotDraft({ ...lotDraft, gracePeriod: e.target.value })} />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                     <div>
+                        <label className="input-label">Ticket Perdido</label>
+                        <input className="input-field" type="number" value={lotDraft.lostTicketFee} onChange={e => setLotDraft({ ...lotDraft, lostTicketFee: e.target.value })} />
+                     </div>
+                     <div className="white-card" style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <Clock size={18} color="var(--accent-gold)" />
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Luego podrás crear zonas/espacios y tarifas.</span>
+                     </div>
+                  </div>
+
+                  <button className="btn-primary" style={{ width: '100%', height: '56px' }} onClick={submitCreateLot}>
+                     Crear Sede
+                  </button>
+               </div>
+            </div>
+         )}
     </div>
   );
 }
