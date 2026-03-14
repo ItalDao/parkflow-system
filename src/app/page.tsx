@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Database, Loader2, ParkingCircle } from 'lucide-react';
+import { LogIn, Database, Loader2, ParkingCircle, Mail, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@parkingos.com');
-  const [password, setPassword] = useState('Admin123!');
+  const isProd = process.env.NODE_ENV === 'production';
+  const [email, setEmail] = useState(isProd ? '' : 'admin@parkingos.com');
+  const [password, setPassword] = useState(isProd ? '' : 'Admin123!');
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -20,24 +25,42 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      setError('Ingresa tu correo y contraseña.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', email, password }),
+        body: JSON.stringify({ action: 'login', email: normalizedEmail, password }),
       });
-      const data = await res.json();
+
+      const data = (await res.json().catch(() => ({}))) as { accessToken?: string; refreshToken?: string; user?: unknown; error?: string };
       if (res.ok) {
+        if (!data.accessToken || !data.refreshToken || !data.user) {
+          setError('Respuesta inválida del servidor.');
+          return;
+        }
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        router.push('/dashboard');
+        toast.success('Bienvenido/a');
+        router.replace('/dashboard');
       } else {
-        alert(data.error || 'Error al iniciar sesión');
+        const msg = data.error || (res.status === 401 ? 'Credenciales inválidas' : 'No se pudo iniciar sesión');
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err) {
-      alert('Error de conexión');
+      console.error(err);
+      setError('Error de conexión');
+      toast.error('Error de conexión');
     } finally {
       setLoading(false);
     }
@@ -61,15 +84,17 @@ export default function LoginPage() {
           localStorage.setItem('accessToken', data.accessToken);
           localStorage.setItem('refreshToken', data.refreshToken);
           localStorage.setItem('user', JSON.stringify(data.user));
-          router.push('/dashboard');
+          toast.success('Datos sincronizados y sesión iniciada');
+          router.replace('/dashboard');
         } else {
-          alert('Datos inicializados. Por favor ingrese manualmente.');
+          toast.success('Datos sincronizados. Inicia sesión.');
         }
       } else {
-        alert(seedResult.error || 'Error al inicializar');
+        toast.error(seedResult.error || 'Error al inicializar');
       }
     } catch (err) {
-      alert('Error de conexión al inicializar');
+      console.error(err);
+      toast.error('Error de conexión al inicializar');
     } finally {
       setSeeding(false);
     }
@@ -123,39 +148,73 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {error && (
+            <div className="white-card" style={{ border: '1px solid rgba(220, 38, 38, 0.25)', background: 'rgba(220, 38, 38, 0.06)', padding: '14px 16px', borderRadius: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={18} color="var(--accent-danger)" style={{ marginTop: '2px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontWeight: 900, fontSize: '13px', color: 'var(--text-primary)' }}>No se pudo iniciar sesión</div>
+                <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-muted)' }}>{error}</div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
              <div>
                 <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
                   Correo Electrónico
                 </label>
-                <input
-                  type="email"
-                  placeholder="admin@parkingos.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <Mail size={18} style={{ position: 'absolute', left: '14px', top: '15px', color: 'var(--text-muted)' }} />
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="admin@parkingos.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px 14px 44px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
+                  />
+                </div>
              </div>
              <div>
                 <label style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', display: 'block', marginLeft: '4px' }}>
                   Contraseña
                 </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 18px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <Lock size={18} style={{ position: 'absolute', left: '14px', top: '15px', color: 'var(--text-muted)' }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => setCapsLockOn(e.getModifierState('CapsLock'))}
+                    onBlur={() => setCapsLockOn(false)}
+                    required
+                    style={{ width: '100%', outline: 'none', background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '14px 48px 14px 44px', borderRadius: '16px', fontSize: '14px', fontWeight: 700 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    style={{ position: 'absolute', right: '10px', top: '10px', width: '38px', height: '38px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {capsLockOn && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 800, color: 'var(--accent-warning)' }}>
+                    Caps Lock activado
+                  </div>
+                )}
              </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
                type="button"
-               onClick={() => alert('Sistema de recuperación enviado a su correo corporativo.')}
+              onClick={() => toast('Contacta al administrador para recuperar acceso.')}
                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'color 0.2s ease' }}
                onMouseOver={(e) => (e.currentTarget.style.color = 'var(--accent-gold)')}
                onMouseOut={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -166,7 +225,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || seeding}
             className="btn-primary"
             style={{ 
               padding: '16px', borderRadius: '16px', fontSize: '15px', fontWeight: 900,
@@ -180,12 +239,28 @@ export default function LoginPage() {
             {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
             Acceder al Panel
           </button>
+
+          {!isProd && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@parkingos.com');
+                setPassword('Admin123!');
+                toast('Credenciales demo cargadas');
+              }}
+              className="white-card"
+              style={{ border: 'none', height: '48px', borderRadius: '16px', fontWeight: 900, cursor: 'pointer' }}
+              disabled={loading || seeding}
+            >
+              Usar credenciales demo
+            </button>
+          )}
         </form>
 
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
           <button
             onClick={seedData}
-            disabled={seeding}
+            disabled={seeding || loading}
             style={{ 
               background: 'transparent', border: 'none', color: 'var(--accent-gold)', 
               fontSize: '11px', fontWeight: 900, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',

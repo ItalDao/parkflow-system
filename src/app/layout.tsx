@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToasterProvider } from "@/components/ui/ToasterProvider";
 
 export const metadata: Metadata = {
   title: "ParkingOS — Sistema de Gestión de Parqueadero",
@@ -29,7 +30,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ToasterProvider />
+        {children}
+      </body>
     </html>
   );
 }
