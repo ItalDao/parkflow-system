@@ -54,7 +54,6 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '40px' }}>
             <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Downtonwn Plaza Parking</h2>
             <div style={{ display: 'flex', gap: '12px' }}>
-               <button onClick={fetchData} className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><RotateCcw size={18} /></button>
                <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><MoreHorizontal size={18} /></button>
             </div>
           </div>
@@ -66,11 +65,11 @@ export default function DashboardPage() {
                 onClick={() => setActiveZone(zone)}
                 className={activeZone === zone ? 'btn-primary' : ''}
                 style={{ 
-                  flex: 1, padding: '16px', borderRadius: 'var(--radius-pill)', border: 'none',
-                  fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s ease',
-                  background: activeZone === zone ? 'var(--accent-gold)' : 'white',
-                  color: activeZone === zone ? 'var(--text-primary)' : 'var(--text-muted)',
-                  boxShadow: activeZone === zone ? '0 8px 24px rgba(233, 185, 73, 0.4)' : 'none'
+                   flex: 1, padding: '16px', borderRadius: 'var(--radius-pill)', border: 'none',
+                   fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s ease',
+                   background: activeZone === zone ? 'var(--accent-gold)' : 'white',
+                   color: activeZone === zone ? 'var(--text-primary)' : 'var(--text-muted)',
+                   boxShadow: activeZone === zone ? '0 8px 24px rgba(233, 185, 73, 0.4)' : 'none'
                 }}
               >
                 {zone}
@@ -112,20 +111,20 @@ export default function DashboardPage() {
           {/* Environmental Info */}
           <div className="glass-card" style={{ padding: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Environmental Info</h3>
+               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Información Ambiental</h3>
                <MoreHorizontal size={16} color="var(--text-muted)" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temperature</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temperatura</span>
                     <span style={{ fontSize: '20px', fontWeight: 900 }}>25°C</span>
                  </div>
                  <Thermometer size={20} color="var(--accent-gold)" />
                </div>
                <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Humidity</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Humedad</span>
                     <span style={{ fontSize: '20px', fontWeight: 900 }}>60%</span>
                  </div>
                  <Droplets size={20} color="var(--accent-gold)" />
@@ -140,20 +139,20 @@ export default function DashboardPage() {
              </div>
              <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Current parked</h3>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Vehículo Actual</h3>
                   <MoreHorizontal size={16} color="var(--text-muted)" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '28px' }}>
                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Price per hour</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Precio por hora</div>
                       <div style={{ fontSize: '15px', fontWeight: 900 }}>$5.00 - $9.00</div>
                    </div>
                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Car number</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>N° Placa</div>
                       <div style={{ fontSize: '15px', fontWeight: 900 }}>XY68ZTR</div>
                    </div>
                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Parking Slot</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Espacio</div>
                       <div style={{ fontSize: '15px', fontWeight: 900 }}>Slot A17</div>
                    </div>
                 </div>
@@ -170,14 +169,14 @@ export default function DashboardPage() {
           {/* Nearby Options */}
           <div className="glass-card" style={{ padding: '32px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Nearby Parking</h3>
+               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Ocurrencias Cercanas</h3>
                <MoreHorizontal size={16} color="var(--text-muted)" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 {[
-                  { icon: <Bike size={24} />, label: 'Bike' },
-                  { icon: <Car size={24} />, label: 'Car' },
-                  { icon: <Truck size={24} />, label: 'Truck' }
+                  { icon: <Bike size={24} />, label: 'Bici' },
+                  { icon: <Car size={24} />, label: 'Auto' },
+                  { icon: <Truck size={24} />, label: 'Camión' }
                 ].map(opt => (
                   <div key={opt.label} className="white-card" style={{ padding: '20px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s ease' }}>
                     <div style={{ color: 'var(--text-primary)' }}>{opt.icon}</div>
@@ -195,7 +194,7 @@ export default function DashboardPage() {
         {/* Parking Overview Chart */}
         <div className="glass-card" style={{ padding: '40px' }}>
            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Parking Overview</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Resumen de Ocupación</h3>
               <MoreHorizontal size={20} color="var(--text-muted)" />
            </div>
            
@@ -216,8 +215,8 @@ export default function DashboardPage() {
                     <MapPin size={20} color="var(--accent-gold)" />
                  </div>
                  <div>
-                    <div style={{ fontSize: '15px', fontWeight: 900 }}>Zone A</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Most used zone</div>
+                    <div style={{ fontSize: '15px', fontWeight: 900 }}>Zona A</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Zona más utilizada</div>
                  </div>
               </div>
               <div className="white-card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -226,7 +225,7 @@ export default function DashboardPage() {
                  </div>
                  <div>
                     <div style={{ fontSize: '15px', fontWeight: 900 }}>2h 15m</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Avg parking</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Estancia Promedio</div>
                  </div>
               </div>
            </div>
@@ -235,12 +234,12 @@ export default function DashboardPage() {
         {/* Book Your Parking Form */}
         <div className="glass-card" style={{ padding: '40px' }}>
            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Book your parking</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Reserva tu Espacio</h3>
               <MoreHorizontal size={20} color="var(--text-muted)" />
            </div>
 
            <div className="form-group" style={{ marginBottom: '28px' }}>
-              <label className="input-label" style={{ marginBottom: '14px' }}>Date</label>
+              <label className="input-label" style={{ marginBottom: '14px' }}>Fecha</label>
               <div style={{ position: 'relative' }}>
                  <input className="white-card" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '15px', fontWeight: 800, cursor: 'pointer' }} defaultValue="23 September 2025" />
                  <Calendar size={20} style={{ position: 'absolute', right: '18px', top: '16px', color: 'var(--text-muted)' }} />
@@ -249,17 +248,17 @@ export default function DashboardPage() {
 
            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '40px' }}>
               <div className="form-group">
-                 <label className="input-label" style={{ marginBottom: '14px' }}>Arrive</label>
+                 <label className="input-label" style={{ marginBottom: '14px' }}>Entrada</label>
                  <input className="white-card" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '15px', fontWeight: 800 }} defaultValue="12.00 pm" />
               </div>
               <div className="form-group">
-                 <label className="input-label" style={{ marginBottom: '14px' }}>Exit</label>
+                 <label className="input-label" style={{ marginBottom: '14px' }}>Salida</label>
                  <input className="white-card" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '15px', fontWeight: 800 }} defaultValue="15.00 pm" />
               </div>
            </div>
 
            <button className="btn-primary" style={{ width: '100%', height: '64px', fontSize: '16px', fontWeight: 900, borderRadius: 'var(--radius-md)' }}>
-             Booking
+             Reservar
            </button>
         </div>
       </div>

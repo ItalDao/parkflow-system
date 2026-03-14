@@ -55,8 +55,8 @@ export default function TicketsPage() {
            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } 
         }),
       ]);
-      if (ticketsRes.ok) setTickets(await ticketsRes.ok ? await ticketsRes.json() : []);
-      if (zonesRes.ok) setZones(await zonesRes.ok ? await zonesRes.json() : []);
+      if (ticketsRes.ok) setTickets(await ticketsRes.json());
+      if (zonesRes.ok) setZones(await zonesRes.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, [filter]);
