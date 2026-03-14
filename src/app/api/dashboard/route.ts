@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     const resource = searchParams.get('resource');
 
     // Security Hardening: Strict RBAC for sensitive resources
-    if (user.role === 'OPERATOR' && ['audit', 'users'].includes(resource || '')) {
+    if (user.role === 'OPERATOR' && ['audit', 'users', 'subscriptions'].includes(resource || '')) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
@@ -428,6 +428,20 @@ export async function GET(request: NextRequest) {
 
     // Subscriptions
     if (resource === 'subscriptions') {
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      // keep statuses consistent (best-effort)
+      const now = new Date();
+      await prisma.subscription.updateMany({
+        where: {
+          endDate: { lt: now },
+          status: { in: ['ACTIVE', 'PENDING_RENEWAL'] },
+        },
+        data: { status: 'EXPIRED' },
+      });
+
       const subs = await prisma.subscription.findMany({
         include: {
           user: { select: { firstName: true, lastName: true, email: true } },
@@ -1014,6 +1028,118 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(lot);
     }
 
+    // Create subscription (monthly pass)
+    if (resource === 'subscriptions') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      const data = (body.data && typeof body.data === 'object') ? (body.data as Record<string, unknown>) : (body as Record<string, unknown>);
+      const customer = (data.customer && typeof data.customer === 'object') ? (data.customer as Record<string, unknown>) : {};
+      const vehicleData = (data.vehicle && typeof data.vehicle === 'object') ? (data.vehicle as Record<string, unknown>) : {};
+
+      const email = String(customer.email || '').trim().toLowerCase();
+      const firstName = String(customer.firstName || '').trim();
+      const lastName = String(customer.lastName || '').trim();
+      const phone = customer.phone ? String(customer.phone).trim() : null;
+
+      const plate = String(vehicleData.plate || '').trim().toUpperCase();
+      const vehicleType = String(vehicleData.type || 'CAR').trim();
+      const brand = vehicleData.brand ? String(vehicleData.brand).trim() : null;
+      const color = vehicleData.color ? String(vehicleData.color).trim() : null;
+
+      const startDateRaw = String(data.startDate || '').trim();
+      const endDateRaw = String(data.endDate || '').trim();
+      const price = Number(data.price);
+      const subType = String(data.type || 'FIXED').trim();
+      const autoRenew = Boolean(data.autoRenew);
+
+      if (!email || !email.includes('@')) return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+      if (!firstName || !lastName) return NextResponse.json({ error: 'Nombre y apellido requeridos' }, { status: 400 });
+      if (!plate) return NextResponse.json({ error: 'Placa requerida' }, { status: 400 });
+      if (!startDateRaw || !endDateRaw) return NextResponse.json({ error: 'Fechas requeridas' }, { status: 400 });
+      if (!Number.isFinite(price) || price <= 0) return NextResponse.json({ error: 'Precio inválido' }, { status: 400 });
+
+      const startDate = new Date(startDateRaw);
+      const endDate = new Date(endDateRaw);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return NextResponse.json({ error: 'Fechas inválidas' }, { status: 400 });
+      }
+      if (endDate <= startDate) {
+        return NextResponse.json({ error: 'La fecha fin debe ser posterior a la fecha inicio' }, { status: 400 });
+      }
+
+      const created = await prisma.$transaction(async (tx) => {
+        const existingUser = await tx.user.findUnique({ where: { email } });
+        const userId = existingUser?.id
+          ? existingUser.id
+          : (
+              await tx.user.create({
+                data: {
+                  email,
+                  password: await bcrypt.hash(Math.random().toString(36).slice(2) + Date.now().toString(36), 10),
+                  firstName,
+                  lastName,
+                  phone: phone || undefined,
+                  role: 'CUSTOMER',
+                  isActive: true,
+                },
+              })
+            ).id;
+
+        const existingVehicle = await tx.vehicle.findUnique({ where: { plate } });
+        const vehicleId = existingVehicle?.id
+          ? existingVehicle.id
+          : (
+              await tx.vehicle.create({
+                data: {
+                  plate,
+                  type: vehicleType as never,
+                  brand: brand || undefined,
+                  color: color || undefined,
+                  ownerId: userId,
+                },
+              })
+            ).id;
+
+        // if the vehicle existed but had no owner, attach it
+        if (existingVehicle && !existingVehicle.ownerId) {
+          await tx.vehicle.update({ where: { id: vehicleId }, data: { ownerId: userId } });
+        }
+
+        const sub = await tx.subscription.create({
+          data: {
+            userId,
+            vehicleId,
+            startDate,
+            endDate,
+            price,
+            type: subType as never,
+            autoRenew,
+            status: 'ACTIVE',
+          },
+          include: {
+            user: { select: { firstName: true, lastName: true, email: true } },
+            vehicle: { select: { plate: true, type: true, brand: true } },
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId,
+            title: 'Suscripción creada',
+            message: `Tu suscripción para ${plate} está activa hasta ${endDate.toISOString().slice(0, 10)}.`,
+            type: 'info',
+          },
+        }).catch(() => undefined);
+
+        return sub;
+      });
+
+      await createAuditLog(tokenUser.userId, 'CREATE_SUBSCRIPTION', 'Subscription', created.id, { email, plate, startDate, endDate, price, type: subType, autoRenew });
+      return NextResponse.json(created);
+    }
+
     // Create conversation
     if (resource === 'conversations') {
       if (!contextLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
@@ -1150,6 +1276,42 @@ export async function PUT(request: NextRequest) {
       }
 
       return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
+    }
+
+    // Update subscription (cancel / renew / edit)
+    if (resource === 'subscriptions') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
+
+      const nextStatus = data.status ? String(data.status) : undefined;
+      const nextType = data.type ? String(data.type) : undefined;
+      const nextAutoRenew = typeof data.autoRenew === 'boolean' ? data.autoRenew : undefined;
+      const nextPrice = typeof data.price === 'number' ? data.price : undefined;
+      const nextStartDate = data.startDate ? new Date(String(data.startDate)) : undefined;
+      const nextEndDate = data.endDate ? new Date(String(data.endDate)) : undefined;
+      if (nextStartDate && Number.isNaN(nextStartDate.getTime())) return NextResponse.json({ error: 'startDate inválida' }, { status: 400 });
+      if (nextEndDate && Number.isNaN(nextEndDate.getTime())) return NextResponse.json({ error: 'endDate inválida' }, { status: 400 });
+
+      const updated = await prisma.subscription.update({
+        where: { id },
+        data: {
+          status: nextStatus as never,
+          type: nextType as never,
+          autoRenew: nextAutoRenew,
+          price: nextPrice,
+          startDate: nextStartDate,
+          endDate: nextEndDate,
+        },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+          vehicle: { select: { plate: true, type: true, brand: true } },
+        },
+      });
+
+      await createAuditLog(tokenUser.userId, 'UPDATE_SUBSCRIPTION', 'Subscription', id, data);
+      return NextResponse.json(updated);
     }
 
     // Mark conversation as read (all roles)
