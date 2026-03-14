@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -22,7 +20,13 @@
 
 # misc
 .DS_Store
+Thumbs.db
+desktop.ini
 *.pem
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
 
 # debug
 npm-debug.log*
@@ -30,8 +34,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (STRICTLY IGNORED)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
 
 # vercel
 .vercel
@@ -39,3 +48,47 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma
+/src/generated/prisma
+/prisma/*.db
+/prisma/*.sqlite
+
+# logs
+logs
+*.log
+
+# Editor folders
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.zed/
+
+# Documentation & Notes
+*.md
+
+
+# Personal/Security
+credentials.json
+auth.json
+*.pfx
+*.p12
+*.crt
+*.key
+*.pub
+/secrets/
+.secret*
+
+# Temporary and AI Artifacts (PROTECTED)
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+/tmp/
+.temp/
+.cache/
+data/
+*.bak
+dump.rdb
+

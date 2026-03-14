@@ -1,0 +1,16 @@
+{
+  "name": "ParkingOS Premium",
+  "short_name": "ParkingOS",
+  "description": "Elite Parking Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3182ce",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2950/2950660.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

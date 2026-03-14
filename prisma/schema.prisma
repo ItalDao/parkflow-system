@@ -1,0 +1,422 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  CUSTOMER
+}
+
+enum SpaceStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+  TRUCK
+  VAN
+  ELECTRIC
+  BICYCLE
+}
+
+enum TicketStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  LOST
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  DIGITAL_WALLET
+  PREPAID
+  MONTHLY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING_RENEWAL
+}
+
+enum SubscriptionType {
+  FIXED
+  FLOATING
+}
+
+enum ZoneType {
+  COVERED
+  UNCOVERED
+  VIP
+  MOTORCYCLE
+  DISABLED
+  ELECTRIC
+}
+
+enum RateModalityType {
+  HOURLY
+  FRACTIONAL
+  DAILY
+  MONTHLY
+  NIGHTLY
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  phone           String?
+  avatar          String?
+  role            Role      @default(CUSTOMER)
+  isActive        Boolean   @default(true) @map("is_active")
+  isBlocked       Boolean   @default(false) @map("is_blocked")
+  failedAttempts  Int       @default(0) @map("failed_attempts")
+  blockedUntil    DateTime? @map("blocked_until")
+  twoFactorSecret String?   @map("two_factor_secret")
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  parkingLot      ParkingLot?   @relation("ParkingLotAdmin")
+  assignedLotId   String?       @map("assigned_lot_id")
+  assignedLot     ParkingLot?   @relation("AssignedOperators", fields: [assignedLotId], references: [id])
+  vehicles        Vehicle[]
+  tickets         Ticket[]      @relation("TicketOperator")
+  customerTickets Ticket[]      @relation("TicketCustomer")
+  payments        Payment[]
+  shifts          Shift[]
+  auditLogs       AuditLog[]
+  subscriptions   Subscription[]
+  notifications   Notification[]
+  refreshTokens   RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// PARKING LOT & SPACES
+// ============================================
+
+model ParkingLot {
+  id          String   @id @default(uuid())
+  name        String
+  address     String
+  city        String
+  phone       String?
+  photo       String?
+  latitude    Float?
+  longitude   Float?
+  totalSpaces Int      @map("total_spaces")
+  openTime    String   @default("06:00") @map("open_time")
+  closeTime   String   @default("22:00") @map("close_time")
+  is24Hours   Boolean  @default(false) @map("is_24_hours")
+  isActive    Boolean  @default(true) @map("is_active")
+  gracePeriod Int      @default(15) @map("grace_period")
+  lostTicketFee Float  @default(50000) @map("lost_ticket_fee")
+  adminId     String?  @unique @map("admin_id")
+  admin       User?    @relation("ParkingLotAdmin", fields: [adminId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  zones       Zone[]
+  operators   User[]    @relation("AssignedOperators")
+  rates       Rate[]
+  tickets     Ticket[]
+  shifts      Shift[]
+  payments    Payment[]
+
+  @@map("parking_lots")
+}
+
+model Zone {
+  id           String   @id @default(uuid())
+  name         String
+  type         ZoneType
+  parkingLotId String   @map("parking_lot_id")
+  parkingLot   ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  spaces       Space[]
+  rates        Rate[]
+
+  @@map("zones")
+}
+
+model Space {
+  id        String      @id @default(uuid())
+  number    String
+  status    SpaceStatus @default(AVAILABLE)
+  floor     Int         @default(1)
+  zoneId    String      @map("zone_id")
+  zone      Zone        @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  tickets   Ticket[]
+  statusHistory SpaceStatusHistory[]
+
+  @@unique([number, zoneId])
+  @@map("spaces")
+}
+
+model SpaceStatusHistory {
+  id         String      @id @default(uuid())
+  spaceId    String      @map("space_id")
+  space      Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  fromStatus SpaceStatus @map("from_status")
+  toStatus   SpaceStatus @map("to_status")
+  changedAt  DateTime    @default(now()) @map("changed_at")
+  reason     String?
+
+  @@map("space_status_history")
+}
+
+// ============================================
+// VEHICLES
+// ============================================
+
+model Vehicle {
+  id          String      @id @default(uuid())
+  plate       String      @unique
+  type        VehicleType @default(CAR)
+  brand       String?
+  model       String?
+  color       String?
+  photo       String?
+  isBlacklisted Boolean   @default(false) @map("is_blacklisted")
+  blacklistReason String? @map("blacklist_reason")
+  ownerId     String?     @map("owner_id")
+  owner       User?       @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  tickets     Ticket[]
+  subscriptions Subscription[]
+
+  @@map("vehicles")
+}
+
+// ============================================
+// TICKETS (ENTRIES & EXITS)
+// ============================================
+
+model Ticket {
+  id          String       @id @default(uuid())
+  ticketCode  String       @unique @map("ticket_code")
+  status      TicketStatus @default(ACTIVE)
+  entryTime   DateTime     @default(now()) @map("entry_time")
+  exitTime    DateTime?    @map("exit_time")
+  entryPhoto  String?      @map("entry_photo")
+  exitPhoto   String?      @map("exit_photo")
+  totalHours  Float?       @map("total_hours")
+  totalAmount Float?       @map("total_amount")
+  
+  // Relations
+  vehicleId   String       @map("vehicle_id")
+  vehicle     Vehicle      @relation(fields: [vehicleId], references: [id])
+  spaceId     String       @map("space_id")
+  space       Space        @relation(fields: [spaceId], references: [id])
+  parkingLotId String      @map("parking_lot_id")
+  parkingLot  ParkingLot   @relation(fields: [parkingLotId], references: [id])
+  operatorId  String?      @map("operator_id")
+  operator    User?        @relation("TicketOperator", fields: [operatorId], references: [id])
+  customerId  String?      @map("customer_id")
+  customer    User?        @relation("TicketCustomer", fields: [customerId], references: [id])
+  payment     Payment?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("tickets")
+}
+
+// ============================================
+// RATES & PRICING
+// ============================================
+
+model Rate {
+  id           String           @id @default(uuid())
+  name         String
+  vehicleType  VehicleType      @map("vehicle_type")
+  modality     RateModalityType
+  price        Float
+  isActive     Boolean          @default(true) @map("is_active")
+  isPeak       Boolean          @default(false) @map("is_peak")
+  peakStartTime String?         @map("peak_start_time")
+  peakEndTime   String?         @map("peak_end_time")
+  parkingLotId String           @map("parking_lot_id")
+  parkingLot   ParkingLot       @relation(fields: [parkingLotId], references: [id])
+  zoneId       String?          @map("zone_id")
+  zone         Zone?            @relation(fields: [zoneId], references: [id])
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  @@map("rates")
+}
+
+// ============================================
+// PAYMENTS & BILLING
+// ============================================
+
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Float
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  reference     String?
+  cashReceived  Float?        @map("cash_received")
+  changeGiven   Float?        @map("change_given")
+  invoiceNumber String?       @unique @map("invoice_number")
+  invoiceUrl    String?       @map("invoice_url")
+  ticketId      String        @unique @map("ticket_id")
+  ticket        Ticket        @relation(fields: [ticketId], references: [id])
+  parkingLotId  String        @map("parking_lot_id")
+  parkingLot    ParkingLot    @relation(fields: [parkingLotId], references: [id])
+  operatorId    String?       @map("operator_id")
+  operator      User?         @relation(fields: [operatorId], references: [id])
+  shiftId       String?       @map("shift_id")
+  shift         Shift?        @relation(fields: [shiftId], references: [id])
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+// ============================================
+// SHIFTS
+// ============================================
+
+model Shift {
+  id             String      @id @default(uuid())
+  status         ShiftStatus @default(OPEN)
+  startTime      DateTime    @default(now()) @map("start_time")
+  endTime        DateTime?   @map("end_time")
+  initialCash    Float       @default(0) @map("initial_cash")
+  totalCash      Float       @default(0) @map("total_cash")
+  totalCard      Float       @default(0) @map("total_card")
+  totalDigital   Float       @default(0) @map("total_digital")
+  expectedTotal  Float       @default(0) @map("expected_total")
+  actualTotal    Float?      @map("actual_total")
+  difference     Float?
+  vehiclesServed Int         @default(0) @map("vehicles_served")
+  notes          String?
+  operatorId     String      @map("operator_id")
+  operator       User        @relation(fields: [operatorId], references: [id])
+  parkingLotId   String      @map("parking_lot_id")
+  parkingLot     ParkingLot  @relation(fields: [parkingLotId], references: [id])
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  payments       Payment[]
+
+  @@map("shifts")
+}
+
+// ============================================
+// SUBSCRIPTIONS (MONTHLY PASSES)
+// ============================================
+
+model Subscription {
+  id          String             @id @default(uuid())
+  type        SubscriptionType
+  status      SubscriptionStatus @default(ACTIVE)
+  startDate   DateTime           @map("start_date")
+  endDate     DateTime           @map("end_date")
+  price       Float
+  autoRenew   Boolean            @default(false) @map("auto_renew")
+  userId      String             @map("user_id")
+  user        User               @relation(fields: [userId], references: [id])
+  vehicleId   String             @map("vehicle_id")
+  vehicle     Vehicle            @relation(fields: [vehicleId], references: [id])
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false) @map("is_read")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  details   String?
+  ipAddress String?  @map("ip_address")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
