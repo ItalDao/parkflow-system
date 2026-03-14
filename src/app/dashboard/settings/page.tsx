@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Building, 
@@ -42,22 +42,7 @@ export default function SettingsPage() {
   const [newRate, setNewRate] = useState({ name: '', vehicleType: 'CAR', price: 0 });
   const router = useRouter();
 
-  useEffect(() => {
-      let cancelled = false;
-      (async () => {
-         setLoading(true);
-         try {
-            await Promise.all([fetchRates(), fetchLot()]);
-         } finally {
-            if (!cancelled) setLoading(false);
-         }
-      })();
-      return () => {
-         cancelled = true;
-      };
-  }, []);
-
-   const fetchLot = async () => {
+   const fetchLot = useCallback(async () => {
       try {
          const res = await fetch('/api/dashboard?resource=parking-lot', {
             headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
@@ -74,9 +59,9 @@ export default function SettingsPage() {
       } catch (err) {
          console.error(err);
       }
-   };
+   }, [router]);
 
-  const fetchRates = async () => {
+  const fetchRates = useCallback(async () => {
     try {
       const res = await fetch('/api/dashboard?resource=rates', { 
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } 
@@ -88,7 +73,22 @@ export default function SettingsPage() {
          }
       if (res.ok) setRates(await res.json());
     } catch (err) { console.error(err); }
-  };
+  }, [router]);
+
+  useEffect(() => {
+      let cancelled = false;
+      (async () => {
+         setLoading(true);
+         try {
+            await Promise.all([fetchRates(), fetchLot()]);
+         } finally {
+            if (!cancelled) setLoading(false);
+         }
+      })();
+      return () => {
+         cancelled = true;
+      };
+  }, [fetchRates, fetchLot]);
 
    const handleSaveLot = async () => {
       if (!lotDraft) return;

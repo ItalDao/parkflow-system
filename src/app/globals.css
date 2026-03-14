@@ -23,6 +23,7 @@
   --accent-info: #3b82f6;
   
   --border-color: #d1d5db;
+  --border-hover: #b8c0c8;
   --border-light: rgba(255, 255, 255, 0.8);
   
   --radius-pill: 9999px;
@@ -56,6 +57,7 @@
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --border-color: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.2);
 }
 
 * {
@@ -103,35 +105,6 @@ body {
 
 .white-card:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-.navbar-pill {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius-pill);
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-light);
-}
-
-.nav-link-pill {
-  padding: 10px 24px;
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.nav-link-pill.active {
-  background: var(--accent-primary);
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Gradient accent border */
@@ -395,6 +368,8 @@ body {
 .navbar-pill {
   height: 64px;
   background: var(--bg-navbar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-pill);
   padding: 0 32px;
   display: flex;
@@ -405,16 +380,62 @@ body {
   max-width: 1400px;
   box-shadow: var(--shadow-pill);
   border: 1px solid var(--border-light);
+  position: sticky;
+  top: 20px;
+  z-index: 50;
+  gap: 24px;
+}
+
+.navbar-pill__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.navbar-pill__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--accent-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(233, 185, 73, 0.4);
+}
+
+.navbar-pill__name {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.nav-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.03);
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(0,0,0,0.05);
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
 }
 
 .nav-link-pill {
   padding: 10px 24px;
   border-radius: var(--radius-pill);
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: 800;
   font-size: 13px;
   text-decoration: none;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
 }
 
 .nav-link-pill:hover {
@@ -423,9 +444,29 @@ body {
 }
 
 .nav-link-pill.active {
-  background: var(--accent-primary);
-  color: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.icon-btn-pill {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.05);
+  background: white;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.icon-btn-pill:hover {
+  background: var(--bg-primary);
+  transform: translateY(-2px);
 }
 
 /* Stats card */

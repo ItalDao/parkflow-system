@@ -115,7 +115,7 @@ export default function LoginPage() {
             <ParkingCircle size={40} />
           </div>
           <h1 style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-1.5px', marginBottom: '4px' }}>
-            Parkzone
+            ParkingOS
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, letterSpacing: '0.5px' }}>
             GESTIÓN DE PARQUEADERO ELITE
@@ -199,7 +199,7 @@ export default function LoginPage() {
       </div>
 
       <div style={{ position: 'absolute', bottom: '30px', color: 'var(--text-muted)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px' }}>
-        PARKZONE CLOUD © 2026 · ELITE ACCESS
+        PARKINGOS CLOUD © 2026 · ELITE ACCESS
       </div>
     </div>
   );

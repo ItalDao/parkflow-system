@@ -42,7 +42,7 @@ async function main() {
     console.log('🏢 Initializing Parking Infrastructure...');
     const lot = await prisma.parkingLot.create({
       data: {
-        name: 'Parkzone Elite Industrial',
+        name: 'ParkingOS Elite Industrial',
         address: 'Av. El Dorado #69-20, Bogotá',
         city: 'Bogotá',
         totalSpaces: 100,
