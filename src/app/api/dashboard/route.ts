@@ -1,11 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
+import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 
 function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
   return verifyAccessToken(authHeader.substring(7));
+}
+
+function normalizePlate(input: string) {
+  return String(input || '').trim().toUpperCase();
+}
+
+async function resolveParkingLotIdForUser(userId: string, role: string): Promise<string | null> {
+  if (role === 'SUPER_ADMIN') {
+    const lot = await prisma.parkingLot.findFirst({ select: { id: true } });
+    return lot?.id ?? null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { assignedLotId: true, parkingLot: { select: { id: true } } },
+  });
+
+  return user?.parkingLot?.id ?? user?.assignedLotId ?? null;
+}
+
+async function setSpaceStatusWithHistory(
+  tx: typeof prisma,
+  params: { spaceId: string; toStatus: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE' | 'OUT_OF_SERVICE'; reason?: string }
+) {
+  const current = await tx.space.findUnique({ where: { id: params.spaceId }, select: { status: true } });
+  if (!current) throw new Error('Espacio no encontrado');
+  if (current.status === params.toStatus) return;
+
+  await tx.space.update({ where: { id: params.spaceId }, data: { status: params.toStatus } });
+  await tx.spaceStatusHistory.create({
+    data: {
+      spaceId: params.spaceId,
+      fromStatus: current.status,
+      toStatus: params.toStatus,
+      reason: params.reason,
+    },
+  });
 }
 
 async function createAuditLog(userId: string, action: string, entity: string, entityId?: string, details?: any) {
@@ -31,13 +69,23 @@ export async function GET(request: NextRequest) {
     const resource = searchParams.get('resource');
 
     // Security Hardening: Strict RBAC for sensitive resources
-    if (user.role === 'OPERATOR' && ['audit', 'users', 'stats'].includes(resource || '')) {
+    if (user.role === 'OPERATOR' && ['audit', 'users'].includes(resource || '')) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
+    const parkingLotId = await resolveParkingLotIdForUser(user.userId, user.role);
+
     // Dashboard stats
     if (resource === 'stats') {
-      const parkingLot = await prisma.parkingLot.findFirst({
+      const parkingLot = parkingLotId
+        ? await prisma.parkingLot.findUnique({
+            where: { id: parkingLotId },
+            include: {
+              zones: { include: { spaces: true } },
+              tickets: { where: { status: 'ACTIVE' } },
+            },
+          })
+        : await prisma.parkingLot.findFirst({
         include: {
           zones: { include: { spaces: true } },
           tickets: { where: { status: 'ACTIVE' } },
@@ -83,6 +131,19 @@ export async function GET(request: NextRequest) {
         where: { createdAt: { gte: today }, parkingLotId: parkingLot.id },
       });
 
+      // OPERATOR puede ver ocupación, pero no cifras financieras.
+      const finance = user.role === 'OPERATOR'
+        ? {
+            todayRevenue: 0,
+            monthRevenue: 0,
+            todayTransactions: 0,
+          }
+        : {
+            todayRevenue: todayPayments._sum.amount || 0,
+            monthRevenue: monthPayments._sum.amount || 0,
+            todayTransactions: todayPayments._count || 0,
+          };
+
       return NextResponse.json({
         totalSpaces,
         occupiedSpaces,
@@ -90,11 +151,9 @@ export async function GET(request: NextRequest) {
         reservedSpaces,
         maintenanceSpaces,
         occupancyRate: totalSpaces > 0 ? Math.round((occupiedSpaces / totalSpaces) * 100) : 0,
-        todayRevenue: todayPayments._sum.amount || 0,
         todayVehicles: todayTickets,
         activeTickets: parkingLot.tickets.length,
-        monthRevenue: monthPayments._sum.amount || 0,
-        todayTransactions: todayPayments._count || 0,
+        ...finance,
         parkingLot: {
           id: parkingLot.id,
           name: parkingLot.name,
@@ -103,9 +162,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (resource === 'parking-lot') {
+      if (!parkingLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
+      const lot = await prisma.parkingLot.findUnique({
+        where: { id: parkingLotId },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          city: true,
+          phone: true,
+          totalSpaces: true,
+          openTime: true,
+          closeTime: true,
+          is24Hours: true,
+          isActive: true,
+          gracePeriod: true,
+          lostTicketFee: true,
+          photo: true,
+          latitude: true,
+          longitude: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return NextResponse.json(lot);
+    }
+
     // Zone and spaces for map
     if (resource === 'zones') {
-      const parkingLot = await prisma.parkingLot.findFirst({
+      if (!parkingLotId) return NextResponse.json([]);
+      const parkingLot = await prisma.parkingLot.findUnique({
+        where: { id: parkingLotId },
         include: {
           zones: {
             include: {
@@ -118,12 +206,11 @@ export async function GET(request: NextRequest) {
                   },
                 },
               },
-              _count: { select: { spaces: true } }
+              _count: { select: { spaces: true } },
             },
           },
         },
       });
-
       return NextResponse.json(parkingLot?.zones || []);
     }
 
@@ -132,6 +219,7 @@ export async function GET(request: NextRequest) {
       const status = searchParams.get('status');
       const whereClause: Record<string, unknown> = {};
       if (status) whereClause.status = status;
+      if (parkingLotId) whereClause.parkingLotId = parkingLotId;
 
       const tickets = await prisma.ticket.findMany({
         where: whereClause,
@@ -239,6 +327,7 @@ export async function GET(request: NextRequest) {
     // Payments
     if (resource === 'payments') {
       const payments = await prisma.payment.findMany({
+        where: parkingLotId ? { parkingLotId } : undefined,
         include: {
           ticket: { include: { vehicle: true } },
           operator: { select: { firstName: true, lastName: true } },
@@ -252,6 +341,7 @@ export async function GET(request: NextRequest) {
     // Rates
     if (resource === 'rates') {
       const rates = await prisma.rate.findMany({
+        where: parkingLotId ? { parkingLotId } : undefined,
         include: { zone: true },
         orderBy: { name: 'asc' },
       });
@@ -259,10 +349,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (resource === 'lots') {
-      const lots = await prisma.parkingLot.findMany({
-        include: { _count: { select: { zones: true } } }
+      if (user.role === 'SUPER_ADMIN') {
+        const lots = await prisma.parkingLot.findMany({ include: { _count: { select: { zones: true } } } });
+        return NextResponse.json(lots);
+      }
+      if (!parkingLotId) return NextResponse.json([]);
+      const lot = await prisma.parkingLot.findUnique({
+        where: { id: parkingLotId },
+        include: { _count: { select: { zones: true } } },
       });
-      return NextResponse.json(lots);
+      return NextResponse.json(lot ? [lot] : []);
     }
 
     // Audit logs (SUPER_ADMIN only)
@@ -324,34 +420,40 @@ export async function POST(request: NextRequest) {
     // Booking Logic for Reservation Module
     if (resource === 'booking') {
       const { plate, vehicleType, arriveTime, exitTime, spaceId } = body;
-      const parkingLot = await prisma.parkingLot.findFirst();
+      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero' }, { status: 400 });
 
-      let vehicle = await prisma.vehicle.findUnique({ where: { plate } });
-      if (!vehicle) vehicle = await prisma.vehicle.create({ data: { plate, type: vehicleType || 'CAR' } });
+      const normalizedPlate = normalizePlate(plate);
+      let vehicle = await prisma.vehicle.findUnique({ where: { plate: normalizedPlate } });
+      if (!vehicle) vehicle = await prisma.vehicle.create({ data: { plate: normalizedPlate, type: vehicleType || 'CAR' } });
 
       const ticketCode = `RES-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const ticket = await prisma.ticket.create({
-        data: {
-          ticketCode,
-          vehicleId: vehicle.id,
-          spaceId,
-          parkingLotId: parkingLot.id,
-          operatorId: tokenUser.userId,
-          status: 'ACTIVE', // Simplification: reservation is an active entry in this mock
-        }
+      const ticket = await prisma.$transaction(async (tx) => {
+        const created = await tx.ticket.create({
+          data: {
+            ticketCode,
+            vehicleId: vehicle.id,
+            spaceId,
+            parkingLotId: parkingLot.id,
+            operatorId: tokenUser.userId,
+            status: 'ACTIVE',
+          },
+        });
+        await setSpaceStatusWithHistory(tx, { spaceId, toStatus: 'RESERVED', reason: 'Reserva creada' });
+        return created;
       });
-      await prisma.space.update({ where: { id: spaceId }, data: { status: 'RESERVED' } });
-      await createAuditLog(tokenUser.userId, 'CREATE_BOOKING', 'Ticket', ticket.id, { plate });
+      await createAuditLog(tokenUser.userId, 'CREATE_BOOKING', 'Ticket', ticket.id, { plate: normalizedPlate, arriveTime, exitTime });
       return NextResponse.json(ticket);
     }
     if (resource === 'entry') {
       const { plate, vehicleType, spaceId } = body;
 
-      let vehicle = await prisma.vehicle.findUnique({ where: { plate } });
+      const normalizedPlate = normalizePlate(plate);
+      let vehicle = await prisma.vehicle.findUnique({ where: { plate: normalizedPlate } });
       if (!vehicle) {
         vehicle = await prisma.vehicle.create({
-          data: { plate, type: vehicleType || 'CAR' },
+          data: { plate: normalizedPlate, type: vehicleType || 'CAR' },
         });
       }
 
@@ -359,33 +461,41 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Vehículo en lista negra: ' + vehicle.blacklistReason }, { status: 403 });
       }
 
-      const parkingLot = await prisma.parkingLot.findFirst();
+      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
+
+      const space = await prisma.space.findUnique({ where: { id: spaceId }, select: { status: true } });
+      if (!space) return NextResponse.json({ error: 'Espacio no encontrado' }, { status: 404 });
+      if (space.status !== 'AVAILABLE' && space.status !== 'RESERVED') {
+        return NextResponse.json({ error: 'El espacio no está disponible' }, { status: 400 });
+      }
 
       const ticketCode = `PKG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-      const ticket = await prisma.ticket.create({
-        data: {
-          ticketCode,
-          vehicleId: vehicle.id,
-          spaceId,
-          parkingLotId: parkingLot.id,
-          operatorId: tokenUser.userId,
-        },
-        include: { vehicle: true, space: { include: { zone: true } } },
+      const ticket = await prisma.$transaction(async (tx) => {
+        const created = await tx.ticket.create({
+          data: {
+            ticketCode,
+            vehicleId: vehicle.id,
+            spaceId,
+            parkingLotId: parkingLot.id,
+            operatorId: tokenUser.userId,
+          },
+          include: { vehicle: true, space: { include: { zone: true } } },
+        });
+
+        await setSpaceStatusWithHistory(tx, { spaceId, toStatus: 'OCCUPIED', reason: `Entrada ${normalizedPlate}` });
+        return created;
       });
 
-      await prisma.space.update({
-        where: { id: spaceId },
-        data: { status: 'OCCUPIED' },
-      });
-
+      await createAuditLog(tokenUser.userId, 'CREATE_ENTRY', 'Ticket', ticket.id, { plate: normalizedPlate, spaceId });
       return NextResponse.json(ticket);
     }
 
     // Register vehicle exit
     if (resource === 'exit') {
-      const { ticketId, paymentMethod, cashReceived } = body;
+      const { ticketId, paymentMethod, cashReceived, lostTicket } = body;
 
       const ticket = await prisma.ticket.findUnique({
         where: { id: ticketId },
@@ -396,81 +506,116 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Ticket no encontrado o ya procesado' }, { status: 400 });
       }
 
+      const parkingLot = await prisma.parkingLot.findUnique({ where: { id: ticket.parkingLotId } });
+      if (!parkingLot) return NextResponse.json({ error: 'Sede no encontrada' }, { status: 400 });
+
       const now = new Date();
       const entryTime = new Date(ticket.entryTime);
-      const diffMs = now.getTime() - entryTime.getTime();
-      const totalHours = Math.max(diffMs / (1000 * 60 * 60), 0);
 
-      const rate = await prisma.rate.findFirst({
+      // Preferimos tarifa por zona, luego tarifa global de la sede.
+      const zoneRate = await prisma.rate.findFirst({
         where: {
           parkingLotId: ticket.parkingLotId,
           vehicleType: ticket.vehicle.type,
+          zoneId: ticket.space.zoneId,
           isActive: true,
         },
+        orderBy: { price: 'desc' },
+      });
+      const lotRate = await prisma.rate.findFirst({
+        where: {
+          parkingLotId: ticket.parkingLotId,
+          vehicleType: ticket.vehicle.type,
+          zoneId: null,
+          isActive: true,
+        },
+        orderBy: { price: 'desc' },
+      });
+      const rate = zoneRate ?? lotRate;
+
+      const hourlyRate = rate?.price ?? 3000;
+      const pricing = calculateHourlyFractionalPricing({
+        entryTime,
+        exitTime: now,
+        gracePeriodMinutes: parkingLot.gracePeriod,
+        hourlyRate,
       });
 
-      const hourlyRate = rate?.price || 3000;
-      const totalAmount = Math.ceil(totalHours) * hourlyRate;
-
+      const totalAmount = lostTicket ? parkingLot.lostTicketFee : pricing.amount;
       const changeGiven = paymentMethod === 'CASH' && cashReceived ? cashReceived - totalAmount : 0;
 
       const activeShift = await prisma.shift.findFirst({
         where: { operatorId: tokenUser.userId, status: 'OPEN' },
       });
 
-      const payment = await prisma.payment.create({
-        data: {
-          amount: totalAmount,
-          method: paymentMethod || 'CASH',
-          status: 'COMPLETED',
-          cashReceived: cashReceived || null,
-          changeGiven: changeGiven > 0 ? changeGiven : null,
-          invoiceNumber: `INV-${Date.now()}`,
-          ticketId: ticket.id,
-          parkingLotId: ticket.parkingLotId,
-          operatorId: tokenUser.userId,
-          shiftId: activeShift?.id || null,
-        },
-      });
-
-      await prisma.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          status: 'COMPLETED',
-          exitTime: now,
-          totalHours: Math.round(totalHours * 100) / 100,
-          totalAmount,
-        },
-      });
-
-      await prisma.space.update({
-        where: { id: ticket.spaceId },
-        data: { status: 'AVAILABLE' },
-      });
-
-      if (activeShift) {
-        const cashAdd = paymentMethod === 'CASH' ? totalAmount : 0;
-        const cardAdd = paymentMethod === 'CARD' ? totalAmount : 0;
-        const digitalAdd = paymentMethod === 'DIGITAL_WALLET' ? totalAmount : 0;
-        await prisma.shift.update({
-          where: { id: activeShift.id },
+      const result = await prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.create({
           data: {
-            totalCash: { increment: cashAdd },
-            totalCard: { increment: cardAdd },
-            totalDigital: { increment: digitalAdd },
-            expectedTotal: { increment: totalAmount },
-            vehiclesServed: { increment: 1 },
+            amount: totalAmount,
+            method: paymentMethod || 'CASH',
+            status: 'COMPLETED',
+            cashReceived: cashReceived || null,
+            changeGiven: changeGiven > 0 ? changeGiven : null,
+            invoiceNumber: `INV-${Date.now()}`,
+            ticketId: ticket.id,
+            parkingLotId: ticket.parkingLotId,
+            operatorId: tokenUser.userId,
+            shiftId: activeShift?.id || null,
           },
         });
-      }
 
-      return NextResponse.json({ ticket: { ...ticket, exitTime: now, totalHours, totalAmount }, payment });
+        await tx.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            status: lostTicket ? 'LOST' : 'COMPLETED',
+            exitTime: now,
+            totalHours: Math.round(pricing.totalHours * 100) / 100,
+            totalAmount,
+          },
+        });
+
+        await setSpaceStatusWithHistory(tx, { spaceId: ticket.spaceId, toStatus: 'AVAILABLE', reason: lostTicket ? 'Salida por ticket perdido' : 'Salida completada' });
+
+        if (activeShift) {
+          const method = paymentMethod || 'CASH';
+          const cashAdd = method === 'CASH' ? totalAmount : 0;
+          const cardAdd = method === 'CARD' ? totalAmount : 0;
+          const digitalAdd = method === 'DIGITAL_WALLET' ? totalAmount : 0;
+          await tx.shift.update({
+            where: { id: activeShift.id },
+            data: {
+              totalCash: { increment: cashAdd },
+              totalCard: { increment: cardAdd },
+              totalDigital: { increment: digitalAdd },
+              expectedTotal: { increment: totalAmount },
+              vehiclesServed: { increment: 1 },
+            },
+          });
+        }
+
+        return { payment };
+      });
+
+      await createAuditLog(tokenUser.userId, lostTicket ? 'EXIT_LOST_TICKET' : 'EXIT_TICKET', 'Ticket', ticket.id, {
+        plate: ticket.vehicle.plate,
+        paymentMethod: paymentMethod || 'CASH',
+        amount: totalAmount,
+      });
+
+      return NextResponse.json({
+        ticket: { ...ticket, exitTime: now, totalHours: pricing.totalHours, totalAmount, status: lostTicket ? 'LOST' : 'COMPLETED' },
+        payment: result.payment,
+        pricing: lostTicket
+          ? { totalMinutes: pricing.totalMinutes, billableMinutes: pricing.billableMinutes, gracePeriod: parkingLot.gracePeriod, hourlyRate }
+          : { totalMinutes: pricing.totalMinutes, billableMinutes: pricing.billableMinutes, gracePeriod: parkingLot.gracePeriod, hourlyRate },
+      });
     }
 
     // Open shift
     if (resource === 'open-shift') {
       const { initialCash } = body;
-      const parkingLot = await prisma.parkingLot.findFirst();
+      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
 
       const existingShift = await prisma.shift.findFirst({
@@ -489,25 +634,41 @@ export async function POST(request: NextRequest) {
         include: { operator: { select: { firstName: true, lastName: true } } },
       });
 
+      await createAuditLog(tokenUser.userId, 'OPEN_SHIFT', 'Shift', shift.id, { initialCash: initialCash || 0 });
+
       return NextResponse.json(shift);
     }
 
     // Close shift
     if (resource === 'close-shift') {
-      const { shiftId, actualTotal, notes } = body;
+      const { shiftId: rawShiftId, actualTotal, notes } = body;
 
+      const shiftId = rawShiftId || (await prisma.shift.findFirst({ where: { operatorId: tokenUser.userId, status: 'OPEN' }, select: { id: true } }))?.id;
+      if (!shiftId) return NextResponse.json({ error: 'No hay turno abierto para cerrar' }, { status: 400 });
+      if (typeof actualTotal !== 'number' || !Number.isFinite(actualTotal)) {
+        return NextResponse.json({ error: 'actualTotal es requerido (número)' }, { status: 400 });
+      }
+
+      const existing = await prisma.shift.findUnique({ where: { id: shiftId } });
+      if (!existing) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 });
+      if (tokenUser.role === 'OPERATOR' && existing.operatorId !== tokenUser.userId) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+
+      const diff = actualTotal - (existing.expectedTotal || 0);
       const shift = await prisma.shift.update({
         where: { id: shiftId },
         data: {
           status: 'CLOSED',
           endTime: new Date(),
           actualTotal,
-          difference: actualTotal - (await prisma.shift.findUnique({ where: { id: shiftId } }))!.expectedTotal,
-          notes,
+          difference: diff,
+          notes: notes || null,
         },
         include: { operator: { select: { firstName: true, lastName: true } } },
       });
 
+      await createAuditLog(tokenUser.userId, 'CLOSE_SHIFT', 'Shift', shiftId, { actualTotal, difference: diff, notes });
       return NextResponse.json(shift);
     }
 
@@ -533,7 +694,8 @@ export async function POST(request: NextRequest) {
       if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      const parkingLot = await prisma.parkingLot.findFirst();
+      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       const rate = await prisma.rate.create({
         data: { ...body.data, parkingLotId: parkingLot?.id }
       });
@@ -602,6 +764,30 @@ export async function PUT(request: NextRequest) {
       });
       await createAuditLog(tokenUser.userId, 'UPDATE_RATE', 'Rate', id, data);
       return NextResponse.json(rate);
+    }
+
+    if (resource === 'parking-lot') {
+      const parkingLotId = await resolveParkingLotIdForUser(tokenUser.userId, tokenUser.role);
+      if (!parkingLotId) return NextResponse.json({ error: 'No hay sede asignada' }, { status: 400 });
+
+      // ADMIN puede modificar su sede; SUPER_ADMIN puede modificar cualquier sede (por ahora: la del contexto)
+      const updated = await prisma.parkingLot.update({
+        where: { id: parkingLotId },
+        data: {
+          name: data.name,
+          address: data.address,
+          city: data.city,
+          phone: data.phone,
+          openTime: data.openTime,
+          closeTime: data.closeTime,
+          is24Hours: data.is24Hours,
+          isActive: data.isActive,
+          gracePeriod: typeof data.gracePeriod === 'number' ? data.gracePeriod : undefined,
+          lostTicketFee: typeof data.lostTicketFee === 'number' ? data.lostTicketFee : undefined,
+        },
+      });
+      await createAuditLog(tokenUser.userId, 'UPDATE_PARKING_LOT', 'ParkingLot', parkingLotId, data);
+      return NextResponse.json(updated);
     }
 
     // Extend Duration Logic

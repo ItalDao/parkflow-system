@@ -22,6 +22,10 @@ export default function ShiftsPage() {
   const [loading, setLoading] = useState(true);
   const [initialCash, setInitialCash] = useState('');
   const [showOpenModal, setShowOpenModal] = useState(false);
+   const [showCloseModal, setShowCloseModal] = useState(false);
+   const [actualTotal, setActualTotal] = useState('');
+   const [closeNotes, setCloseNotes] = useState('');
+   const [closing, setClosing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -52,25 +56,47 @@ export default function ShiftsPage() {
       });
       if (res.ok) {
         setShowOpenModal(false);
+            setInitialCash('');
         fetchData();
       }
     } catch (err) { console.error(err); }
   };
 
-  const handleCloseShift = async () => {
-    if (!confirm('¿Estás seguro de cerrar el turno actual?')) return;
-    try {
-      const res = await fetch('/api/dashboard', {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ resource: 'close-shift' })
-      });
-      if (res.ok) fetchData();
-    } catch (err) { console.error(err); }
-  };
+   const handleCloseShift = () => {
+      if (!activeShift) return;
+      setActualTotal('');
+      setCloseNotes('');
+      setShowCloseModal(true);
+   };
+
+   const submitCloseShift = async () => {
+      if (!activeShift) return;
+      const parsed = Number(actualTotal);
+      if (!Number.isFinite(parsed)) return;
+      setClosing(true);
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: {
+               Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+               'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ resource: 'close-shift', shiftId: activeShift.id, actualTotal: parsed, notes: closeNotes }),
+         });
+         if (res.ok) {
+            setShowCloseModal(false);
+            fetchData();
+         } else {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || 'No se pudo cerrar el turno');
+         }
+      } catch (err) {
+         console.error(err);
+         alert('Error al cerrar el turno');
+      } finally {
+         setClosing(false);
+      }
+   };
 
   if (loading) return <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
@@ -86,7 +112,7 @@ export default function ShiftsPage() {
              <PlayCircle size={20} /> Iniciar Jornada
           </button>
         ) : (
-          <button className="btn-primary" style={{ padding: '0 32px', height: '56px', background: 'var(--accent-danger)' }} onClick={handleCloseShift}>
+               <button className="btn-primary" style={{ padding: '0 32px', height: '56px', background: 'var(--accent-danger)' }} onClick={handleCloseShift}>
              <StopCircle size={20} /> Finalizar Jornada
           </button>
         )}
@@ -228,6 +254,61 @@ export default function ShiftsPage() {
            </div>
         </div>
       )}
+
+         {/* Close Shift Modal */}
+         {showCloseModal && activeShift && (
+            <div className="modal-overlay" onClick={() => !closing && setShowCloseModal(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '8px' }}>Cierre de Turno (Arqueo)</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px', fontWeight: 700 }}>
+                     Registra el total real contado para comparar contra el esperado.
+                  </p>
+
+                  <div className="white-card" style={{ padding: '20px', marginBottom: '20px' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Esperado</span>
+                        <span style={{ fontSize: '14px', fontWeight: 900 }}>{formatCurrency(activeShift.expectedTotal)}</span>
+                     </div>
+                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Efectivo</span>
+                        <span style={{ fontSize: '14px', fontWeight: 900 }}>{formatCurrency(activeShift.totalCash)}</span>
+                     </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                     <label className="input-label">Total Real (conteo)</label>
+                     <input
+                        type="number"
+                        className="input-field"
+                        placeholder="0"
+                        value={actualTotal}
+                        onChange={(e) => setActualTotal(e.target.value)}
+                        style={{ height: '64px', fontSize: '22px', fontWeight: 900 }}
+                     />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '28px' }}>
+                     <label className="input-label">Notas (opcional)</label>
+                     <textarea
+                        className="input-field"
+                        value={closeNotes}
+                        onChange={(e) => setCloseNotes(e.target.value)}
+                        placeholder="Ej: faltante por billete roto, diferencia por datáfono..."
+                        style={{ minHeight: '96px', paddingTop: '14px' }}
+                     />
+                  </div>
+
+                  <button
+                     className="btn-primary"
+                     style={{ width: '100%', height: '64px', fontSize: '15px', background: 'var(--accent-danger)' }}
+                     onClick={submitCloseShift}
+                     disabled={closing || !actualTotal}
+                  >
+                     {closing ? 'Cerrando…' : 'Cerrar Turno y Generar Reporte'}
+                  </button>
+               </div>
+            </div>
+         )}
     </div>
   );
 }

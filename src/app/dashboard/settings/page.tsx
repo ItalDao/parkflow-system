@@ -6,47 +6,113 @@ import {
   Building, 
   Clock, 
   Banknote, 
-  Settings, 
   Car, 
   Bike, 
-  Truck, 
   Loader2, 
   Save, 
-  Trash2, 
   Globe, 
   PlusCircle,
-  Shield,
-  CreditCard,
-  History,
-  Info,
-  ChevronRight
 } from 'lucide-react';
 
 interface Rate {
   id: string; name: string; vehicleType: string; price: number; isActive: boolean;
 }
 
+interface ParkingLotConfig {
+   id: string;
+   name: string;
+   address: string;
+   city: string;
+   phone?: string | null;
+   openTime: string;
+   closeTime: string;
+   is24Hours: boolean;
+   isActive: boolean;
+   gracePeriod: number;
+   lostTicketFee: number;
+}
+
 export default function SettingsPage() {
   const [rates, setRates] = useState<Rate[]>([]);
+   const [lotDraft, setLotDraft] = useState<ParkingLotConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+   const [savingLot, setSavingLot] = useState(false);
   const [showCreateRate, setShowCreateRate] = useState(false);
   const [newRate, setNewRate] = useState({ name: '', vehicleType: 'CAR', price: 0 });
   const router = useRouter();
 
   useEffect(() => {
-    fetchRates();
+      let cancelled = false;
+      (async () => {
+         setLoading(true);
+         try {
+            await Promise.all([fetchRates(), fetchLot()]);
+         } finally {
+            if (!cancelled) setLoading(false);
+         }
+      })();
+      return () => {
+         cancelled = true;
+      };
   }, []);
+
+   const fetchLot = async () => {
+      try {
+         const res = await fetch('/api/dashboard?resource=parking-lot', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+         });
+         if (res.status === 401) {
+            localStorage.removeItem('accessToken');
+            router.push('/');
+            return;
+         }
+         if (res.ok) {
+            const data = await res.json();
+            setLotDraft(data);
+         }
+      } catch (err) {
+         console.error(err);
+      }
+   };
 
   const fetchRates = async () => {
     try {
       const res = await fetch('/api/dashboard?resource=rates', { 
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } 
       });
+         if (res.status === 401) {
+            localStorage.removeItem('accessToken');
+            router.push('/');
+            return;
+         }
       if (res.ok) setRates(await res.json());
     } catch (err) { console.error(err); }
-    finally { setLoading(false); }
   };
+
+   const handleSaveLot = async () => {
+      if (!lotDraft) return;
+      setSavingLot(true);
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resource: 'parking-lot', id: lotDraft.id, data: lotDraft }),
+         });
+         if (res.ok) {
+            const updated = await res.json();
+            setLotDraft(updated);
+         } else {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || 'No se pudo guardar la sede');
+         }
+      } catch (err) {
+         console.error(err);
+         alert('Error guardando la sede');
+      } finally {
+         setSavingLot(false);
+      }
+   };
 
   const handleUpdateRate = async (rate: Rate) => {
     setSaving(rate.id);
@@ -89,20 +155,40 @@ export default function SettingsPage() {
            <h3 style={{ fontSize: '20px', fontWeight: 900, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <Building size={24} color="var(--accent-gold)" /> Configuración de Sede
            </h3>
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-              {[
-                { label: 'Nombre Legal', val: 'Parkzone Downtown Plaza' },
-                { label: 'NIT / Tax ID', val: '900.234.567-1' },
-                { label: 'Ciudad', val: 'Bogotá D.C.' },
-                { label: 'Dirección', val: 'Calle 100 #15-30' },
-              ].map(item => (
-                <div key={item.label} className="form-group">
-                   <label className="input-label" style={{ marginBottom: '10px' }}>{item.label}</label>
-                   <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} defaultValue={item.val} />
-                </div>
-              ))}
-           </div>
-           <button className="btn-primary" style={{ padding: '0 32px', height: '56px' }}>Actualizar Información</button>
+           {!lotDraft ? (
+             <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>No hay sede asignada.</div>
+           ) : (
+             <>
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+                  <div className="form-group">
+                     <label className="input-label" style={{ marginBottom: '10px' }}>Nombre de la Sede</label>
+                     <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.name} onChange={e => setLotDraft({ ...lotDraft, name: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                     <label className="input-label" style={{ marginBottom: '10px' }}>Ciudad</label>
+                     <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.city} onChange={e => setLotDraft({ ...lotDraft, city: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                     <label className="input-label" style={{ marginBottom: '10px' }}>Dirección</label>
+                     <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.address} onChange={e => setLotDraft({ ...lotDraft, address: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                     <label className="input-label" style={{ marginBottom: '10px' }}>Teléfono</label>
+                     <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.phone || ''} onChange={e => setLotDraft({ ...lotDraft, phone: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                     <label className="input-label" style={{ marginBottom: '10px' }}>Estado</label>
+                     <select className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={lotDraft.isActive ? 'ACTIVE' : 'INACTIVE'} onChange={e => setLotDraft({ ...lotDraft, isActive: e.target.value === 'ACTIVE' })}>
+                       <option value="ACTIVE">Activa</option>
+                       <option value="INACTIVE">Inactiva</option>
+                     </select>
+                  </div>
+               </div>
+               <button className="btn-primary" style={{ padding: '0 32px', height: '56px' }} onClick={handleSaveLot} disabled={savingLot}>
+                 {savingLot ? 'Guardando…' : 'Actualizar Información'}
+               </button>
+             </>
+           )}
         </div>
 
         {/* Rates Table */}
@@ -148,19 +234,39 @@ export default function SettingsPage() {
          {/* Operations Policy */}
          <div className="glass-card" style={{ padding: '40px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-               <Clock size={22} color="var(--accent-gold)" /> Políticas de Tiempo
+               <Clock size={22} color="var(--accent-gold)" /> Políticas de Operación
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-               <div className="form-group">
-                  <label className="input-label">Tiempo de Gracia (Min)</label>
-                  <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '15px', fontWeight: 900 }} defaultValue="15" />
-               </div>
-               <div className="form-group">
-                  <label className="input-label">Penalidad por Pérdida de Ticket</label>
-                  <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '15px', fontWeight: 900 }} defaultValue="25000" />
-               </div>
-               <button className="btn-dark" style={{ height: '56px', borderRadius: '16px' }}>Guardar Políticas</button>
-            </div>
+            {!lotDraft ? (
+              <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>No hay sede asignada.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                 <div className="form-group">
+                    <label className="input-label">Tiempo de Gracia (min)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="white-card"
+                      style={{ border: 'none', padding: '16px', width: '100%', fontSize: '15px', fontWeight: 900 }}
+                      value={lotDraft.gracePeriod}
+                      onChange={e => setLotDraft({ ...lotDraft, gracePeriod: Number(e.target.value) })}
+                    />
+                 </div>
+                 <div className="form-group">
+                    <label className="input-label">Penalidad por pérdida de ticket</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="white-card"
+                      style={{ border: 'none', padding: '16px', width: '100%', fontSize: '15px', fontWeight: 900 }}
+                      value={lotDraft.lostTicketFee}
+                      onChange={e => setLotDraft({ ...lotDraft, lostTicketFee: Number(e.target.value) })}
+                    />
+                 </div>
+                 <button className="btn-dark" style={{ height: '56px', borderRadius: '16px' }} onClick={handleSaveLot} disabled={savingLot}>
+                   {savingLot ? 'Guardando…' : 'Guardar Políticas'}
+                 </button>
+              </div>
+            )}
          </div>
 
          {/* System Telemetry */}
@@ -190,14 +296,50 @@ export default function SettingsPage() {
            <div className="modal-content-premium animate-premium" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
               <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>Nueva Tarifa</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
-                 <input className="white-card" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }} placeholder="Nombre (Ej: Nocturna)" value={newRate.name} onChange={e => setNewRate({ ...newRate, name: e.target.value })} />
-                 <select className="white-card" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={newRate.vehicleType} onChange={e => setNewRate({ ...newRate, vehicleType: e.target.value })}>
-                    <option value="CAR">Automóvil</option>
-                    <option value="MOTORCYCLE">Motocicleta</option>
-                 </select>
-                 <input className="white-card" type="number" style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }} placeholder="Precio por hora" value={newRate.price} onChange={e => setNewRate({ ...newRate, price: Number(e.target.value) })} />
+                 <div className="form-group">
+                    <label className="input-label">Nombre</label>
+                    <input
+                      autoFocus
+                      className="white-card"
+                      style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }}
+                      placeholder="Ej: Nocturna"
+                      value={newRate.name}
+                      onChange={e => setNewRate({ ...newRate, name: e.target.value })}
+                    />
+                 </div>
+                 <div className="form-group">
+                    <label className="input-label">Tipo de vehículo</label>
+                    <select
+                      className="white-card"
+                      style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }}
+                      value={newRate.vehicleType}
+                      onChange={e => setNewRate({ ...newRate, vehicleType: e.target.value })}
+                    >
+                      <option value="CAR">Automóvil</option>
+                      <option value="MOTORCYCLE">Motocicleta</option>
+                      <option value="VAN">Camioneta / Van</option>
+                      <option value="TRUCK">Camión</option>
+                      <option value="ELECTRIC">Eléctrico</option>
+                      <option value="BICYCLE">Bicicleta</option>
+                    </select>
+                 </div>
+                 <div className="form-group">
+                    <label className="input-label">Precio por hora</label>
+                    <input
+                      className="white-card"
+                      type="number"
+                      min={0}
+                      style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }}
+                      placeholder="Precio"
+                      value={newRate.price}
+                      onChange={e => setNewRate({ ...newRate, price: Number(e.target.value) })}
+                    />
+                 </div>
               </div>
-              <button className="btn-primary" style={{ width: '100%', height: '60px' }} onClick={handleCreateRate}>Activar Tarifa</button>
+
+              <button className="btn-primary" style={{ width: '100%', height: '60px' }} onClick={handleCreateRate} disabled={!newRate.name || newRate.price <= 0}>
+                 Activar Tarifa
+              </button>
            </div>
         </div>
       )}
