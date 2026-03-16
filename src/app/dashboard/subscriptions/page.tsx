@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Users, 
@@ -74,9 +74,15 @@ export default function SubscriptionsPage() {
    const [query, setQuery] = useState('');
 
    const [appliedParams, setAppliedParams] = useState(false);
+   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+   const cancelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
    const [role, setRole] = useState<string>('OPERATOR');
    const canManage = role === 'SUPER_ADMIN' || role === 'ADMIN';
+
+   useEffect(() => () => {
+      if (cancelTimer.current) clearTimeout(cancelTimer.current);
+   }, []);
 
    const [showCreate, setShowCreate] = useState(false);
    const [saving, setSaving] = useState(false);
@@ -246,7 +252,15 @@ export default function SubscriptionsPage() {
 
    const cancelSubscription = async (s: SubscriptionData) => {
       if (!canManage) return;
-      if (!confirm(`¿Cancelar la suscripción de ${s.vehicle.plate}?`)) return;
+      if (pendingCancelId !== s.id) {
+         setPendingCancelId(s.id);
+         toast('Vuelve a hacer click para confirmar');
+         if (cancelTimer.current) clearTimeout(cancelTimer.current);
+         cancelTimer.current = setTimeout(() => setPendingCancelId(null), 4000);
+         return;
+      }
+      setPendingCancelId(null);
+      if (cancelTimer.current) clearTimeout(cancelTimer.current);
       const res = await fetch('/api/dashboard', {
          method: 'PUT',
          headers: getAuthHeaders(),

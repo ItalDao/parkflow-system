@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDate } from '@/lib/utils';
 import { 
   Search, 
@@ -64,6 +64,8 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
    const [editingUser, setEditingUser] = useState<UserData | null>(null);
+   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCreate, setShowCreate] = useState(false);
    const [newUser, setNewUser] = useState({ email: '', password: '', firstName: '', lastName: '', role: 'OPERATOR', assignedLotId: '' });
    const [role, setRole] = useState<string>('OPERATOR');
@@ -79,6 +81,10 @@ export default function UsersPage() {
       void loadContext(decoded.role || 'OPERATOR');
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+   useEffect(() => () => {
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
+   }, []);
 
    const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('accessToken')}` });
 
@@ -151,7 +157,15 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este usuario permanentemente?')) return;
+      if (pendingDeleteId !== id) {
+         setPendingDeleteId(id);
+         toast('Vuelve a hacer click para confirmar');
+         if (deleteTimer.current) clearTimeout(deleteTimer.current);
+         deleteTimer.current = setTimeout(() => setPendingDeleteId(null), 4000);
+         return;
+      }
+      setPendingDeleteId(null);
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
     try {
       const res = await fetch(`/api/dashboard?resource=users&id=${id}`, {
         method: 'DELETE',

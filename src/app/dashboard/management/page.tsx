@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
    PlusCircle,
@@ -99,6 +99,8 @@ export default function ManagementPage() {
    const [zoneDraft, setZoneDraft] = useState({ name: '', type: 'COVERED', spacesCount: '0', floor: '1', spacePrefix: 'S' });
    const [rateDraft, setRateDraft] = useState({ name: '', vehicleType: 'CAR', modality: 'HOURLY', price: '', zoneId: '' });
    const [rateEdit, setRateEdit] = useState<{ id: string; name: string; price: string; isActive: boolean } | null>(null);
+   const [pendingRateToggleId, setPendingRateToggleId] = useState<string | null>(null);
+   const rateToggleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
    const [lotDraft, setLotDraft] = useState({
       name: '',
       address: '',
@@ -139,6 +141,10 @@ export default function ManagementPage() {
       ],
       []
    );
+
+   useEffect(() => () => {
+      if (rateToggleTimer.current) clearTimeout(rateToggleTimer.current);
+   }, []);
 
    const modalityOptions = useMemo(
       () => [
@@ -391,8 +397,15 @@ export default function ManagementPage() {
 
    const deactivateRate = async (rate: Rate) => {
       if (!canManage) return;
-      const ok = confirm(`¿${rate.isActive ? 'Desactivar' : 'Activar'} la tarifa "${rate.name}"?`);
-      if (!ok) return;
+      if (pendingRateToggleId !== rate.id) {
+         setPendingRateToggleId(rate.id);
+         toast('Vuelve a hacer click para confirmar');
+         if (rateToggleTimer.current) clearTimeout(rateToggleTimer.current);
+         rateToggleTimer.current = setTimeout(() => setPendingRateToggleId(null), 4000);
+         return;
+      }
+      setPendingRateToggleId(null);
+      if (rateToggleTimer.current) clearTimeout(rateToggleTimer.current);
       try {
          const res = await fetch('/api/dashboard', {
             method: 'PUT',

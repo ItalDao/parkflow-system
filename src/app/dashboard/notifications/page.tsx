@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import { 
@@ -12,6 +12,7 @@ import {
   Loader2,
   Inbox
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Notification {
   id: string;
@@ -30,11 +31,17 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'OPERATIONAL'>('ALL');
+  const [pendingClear, setPendingClear] = useState(false);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     fetchNotifications();
   }, [router]);
+
+  useEffect(() => () => {
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+  }, []);
 
   const fetchNotifications = async () => {
     try {
@@ -82,14 +89,25 @@ export default function NotificationsPage() {
   };
 
   const clearAll = async () => {
-    if (!confirm('¿Deseas eliminar todas las notificaciones?')) return;
+    if (!pendingClear) {
+      setPendingClear(true);
+      toast('Vuelve a hacer click para confirmar');
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+      clearTimer.current = setTimeout(() => setPendingClear(false), 4000);
+      return;
+    }
+    setPendingClear(false);
+    if (clearTimer.current) clearTimeout(clearTimer.current);
     try {
       await fetch('/api/dashboard?resource=notifications', {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
       fetchNotifications();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo limpiar');
+    }
   };
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}><Loader2 className="animate-spin" size={40} color="var(--accent-primary)" /></div>;

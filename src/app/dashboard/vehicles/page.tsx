@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getVehicleTypeIcon } from '@/lib/utils';
 import { 
   Search, 
@@ -53,6 +53,8 @@ export default function VehiclesPage() {
    const [showCreate, setShowCreate] = useState(false);
    const [creating, setCreating] = useState(false);
    const [newVehicle, setNewVehicle] = useState({ plate: '', type: 'CAR', brand: '', model: '', color: '', isBlacklisted: false, blacklistReason: '' });
+   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -63,6 +65,10 @@ export default function VehiclesPage() {
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
+
+   useEffect(() => () => {
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
+   }, []);
 
   useEffect(() => {
       const decoded = safeDecodeJwt(localStorage.getItem('accessToken'));
@@ -121,7 +127,15 @@ export default function VehiclesPage() {
    };
 
    const handleDelete = async (id: string) => {
-      if (!confirm('¿Eliminar este vehículo permanentemente?')) return;
+      if (pendingDeleteId !== id) {
+         setPendingDeleteId(id);
+         toast('Vuelve a hacer click para confirmar');
+         if (deleteTimer.current) clearTimeout(deleteTimer.current);
+         deleteTimer.current = setTimeout(() => setPendingDeleteId(null), 4000);
+         return;
+      }
+      setPendingDeleteId(null);
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
       try {
          const res = await fetch(`/api/dashboard?resource=vehicles&id=${encodeURIComponent(id)}`, {
             method: 'DELETE',
