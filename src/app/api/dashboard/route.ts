@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     const resource = searchParams.get('resource');
 
     // Security Hardening: Strict RBAC for sensitive resources
-    if (user.role === 'OPERATOR' && ['audit', 'users', 'subscriptions'].includes(resource || '')) {
+    if (user.role === 'OPERATOR' && ['audit', 'users', 'subscriptions', 'parking-lot', 'rates', 'telemetry'].includes(resource || '')) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
@@ -214,6 +214,28 @@ export async function GET(request: NextRequest) {
         },
       });
       return NextResponse.json(lot);
+    }
+
+    if (resource === 'telemetry') {
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 });
+      }
+
+      let dbVersion: string | null = null;
+      try {
+        const rows = await prisma.$queryRaw<{ version: string }[]>`SELECT version() as version`;
+        dbVersion = rows?.[0]?.version ?? null;
+      } catch {
+        dbVersion = null;
+      }
+
+      return NextResponse.json({
+        env: process.env.NODE_ENV || 'unknown',
+        node: process.version,
+        prisma: Prisma?.prismaVersion?.client || null,
+        db: dbVersion,
+        uptimeSeconds: Math.floor(process.uptime()),
+      });
     }
 
     // Zone and spaces for map

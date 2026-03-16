@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToasterProvider } from "@/components/ui/ToasterProvider";
 
@@ -7,13 +7,14 @@ export const metadata: Metadata = {
   description: "Sistema enterprise de gestión de parqueadero comercial con mapa en tiempo real, control de entradas/salidas, facturación y reportes avanzados.",
   keywords: "parqueadero, parking, gestión, sistema, enterprise",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#3182ce",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  }
 };
 
 export default function RootLayout({

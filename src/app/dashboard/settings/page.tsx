@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Building, 
@@ -32,6 +32,33 @@ interface ParkingLotConfig {
    lostTicketFee: number;
 }
 
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR' | 'CUSTOMER' | string;
+
+function safeDecodeJwt(token: string | null): { role?: Role; userId?: string } {
+   try {
+      if (!token) return {};
+      const part = token.split('.')[1];
+      if (!part) return {};
+      let normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4;
+      if (pad) normalized += '='.repeat(4 - pad);
+      const decoded = atob(normalized);
+      return JSON.parse(decoded);
+   } catch {
+      return {};
+   }
+}
+
+type Telemetry = { env: string; node: string; prisma: string | null; db: string | null; uptimeSeconds: number };
+
+function formatUptime(seconds: number) {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export default function SettingsPage() {
   const [rates, setRates] = useState<Rate[]>([]);
    const [lotDraft, setLotDraft] = useState<ParkingLotConfig | null>(null);
@@ -40,7 +67,11 @@ export default function SettingsPage() {
    const [savingLot, setSavingLot] = useState(false);
   const [showCreateRate, setShowCreateRate] = useState(false);
   const [newRate, setNewRate] = useState({ name: '', vehicleType: 'CAR', price: 0 });
+   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const router = useRouter();
+
+   const role = useMemo(() => safeDecodeJwt(localStorage.getItem('accessToken')).role, []);
+   const canManage = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
    const fetchLot = useCallback(async () => {
       try {
@@ -55,6 +86,24 @@ export default function SettingsPage() {
          if (res.ok) {
             const data = await res.json();
             setLotDraft(data);
+         }
+      } catch (err) {
+         console.error(err);
+      }
+   }, [router]);
+
+   const fetchTelemetry = useCallback(async () => {
+      try {
+         const res = await fetch('/api/dashboard?resource=telemetry', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+         });
+         if (res.status === 401) {
+            localStorage.removeItem('accessToken');
+            router.push('/');
+            return;
+         }
+         if (res.ok) {
+            setTelemetry(await res.json());
          }
       } catch (err) {
          console.error(err);
@@ -76,11 +125,15 @@ export default function SettingsPage() {
   }, [router]);
 
   useEffect(() => {
+      if (!canManage) {
+         router.push('/dashboard');
+         return;
+      }
       let cancelled = false;
       (async () => {
          setLoading(true);
          try {
-            await Promise.all([fetchRates(), fetchLot()]);
+            await Promise.all([fetchRates(), fetchLot(), fetchTelemetry()]);
          } finally {
             if (!cancelled) setLoading(false);
          }
@@ -88,7 +141,7 @@ export default function SettingsPage() {
       return () => {
          cancelled = true;
       };
-  }, [fetchRates, fetchLot]);
+  }, [canManage, fetchRates, fetchLot, fetchTelemetry, router]);
 
    const handleSaveLot = async () => {
       if (!lotDraft) return;
@@ -142,7 +195,9 @@ export default function SettingsPage() {
     } catch (err) { console.error(err); }
   };
 
-  if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
+   if (!canManage) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 800 }}>Acceso restringido a administradores.</div>;
+
+   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
   return (
     <div className="animate-premium" style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '32px', paddingTop: '10px' }}>
@@ -276,10 +331,11 @@ export default function SettingsPage() {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                {[
-                 { k: 'Cloud Node', v: 'Bogotá (BOG-1)' },
-                 { k: 'DB Engine', v: 'PGSQL 17.2' },
-                 { k: 'AI Engine', v: 'ParkBrain v2' },
-                 { k: 'Uptime', v: '99.98%' },
+                 { k: 'Environment', v: telemetry?.env || '—' },
+                 { k: 'Node.js', v: telemetry?.node || '—' },
+                 { k: 'Prisma Client', v: telemetry?.prisma || '—' },
+                 { k: 'DB Version', v: telemetry?.db ? String(telemetry.db).split('\n')[0] : '—' },
+                 { k: 'Uptime', v: telemetry ? formatUptime(telemetry.uptimeSeconds) : '—' },
                ].map(item => (
                  <div key={item.k} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'white', borderRadius: '16px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{item.k}</span>
