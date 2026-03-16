@@ -368,7 +368,25 @@ export async function GET(request: NextRequest) {
 
     // Revenue chart data
     if (resource === 'revenue-chart') {
-      const days = 7;
+      const daysParam = Number(searchParams.get('days') || 7);
+      const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.floor(daysParam), 1), 90) : 7;
+
+      // OPERATOR puede ver ocupación, pero no cifras financieras.
+      if (user.role === 'OPERATOR') {
+        const data = [] as Array<{ date: string; day: string; revenue: number; transactions: number }>;
+        for (let i = days - 1; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          data.push({
+            date: date.toISOString().split('T')[0],
+            day: date.toLocaleDateString('es-CO', { weekday: 'short' }),
+            revenue: 0,
+            transactions: 0,
+          });
+        }
+        return NextResponse.json(data);
+      }
+
       const data = [];
       for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
@@ -381,6 +399,7 @@ export async function GET(request: NextRequest) {
           where: {
             createdAt: { gte: date, lt: nextDate },
             status: 'COMPLETED',
+            ...(parkingLotId ? { parkingLotId } : {}),
           },
           _sum: { amount: true },
           _count: true,
@@ -394,6 +413,52 @@ export async function GET(request: NextRequest) {
         });
       }
       return NextResponse.json(data);
+    }
+
+    // Payment method breakdown for reports (scoped to lot when available)
+    if (resource === 'payment-method-breakdown') {
+      const daysParam = Number(searchParams.get('days') || 7);
+      const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.floor(daysParam), 1), 90) : 7;
+
+      // OPERATOR no ve finanzas
+      if (user.role === 'OPERATOR') {
+        return NextResponse.json({
+          days,
+          total: 0,
+          items: [],
+        });
+      }
+
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - (days - 1));
+
+      const rows = await prisma.payment.groupBy({
+        by: ['method'],
+        where: {
+          createdAt: { gte: start },
+          status: 'COMPLETED',
+          ...(parkingLotId ? { parkingLotId } : {}),
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      });
+
+      const items = rows
+        .map((r) => ({
+          method: r.method,
+          total: r._sum.amount || 0,
+          count: r._count._all || 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+
+      const total = items.reduce((acc, it) => acc + (it.total || 0), 0);
+
+      return NextResponse.json({
+        days,
+        total,
+        items,
+      });
     }
 
     // Users list
@@ -573,14 +638,32 @@ export async function GET(request: NextRequest) {
 
     // Payments
     if (resource === 'payments') {
+      const takeParam = Number(searchParams.get('take') || 50);
+      const take = Number.isFinite(takeParam) ? Math.min(Math.max(Math.floor(takeParam), 1), 500) : 50;
+      const daysParam = searchParams.get('days');
+      const daysNum = daysParam ? Number(daysParam) : null;
+      const days = daysNum && Number.isFinite(daysNum) ? Math.min(Math.max(Math.floor(daysNum), 1), 365) : null;
+
+      const start = days
+        ? (() => {
+            const s = new Date();
+            s.setHours(0, 0, 0, 0);
+            s.setDate(s.getDate() - (days - 1));
+            return s;
+          })()
+        : null;
+
       const payments = await prisma.payment.findMany({
-        where: parkingLotId ? { parkingLotId } : undefined,
+        where: {
+          ...(parkingLotId ? { parkingLotId } : {}),
+          ...(start ? { createdAt: { gte: start } } : {}),
+        },
         include: {
           ticket: { include: { vehicle: true } },
           operator: { select: { firstName: true, lastName: true } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take,
       });
       return NextResponse.json(payments);
     }

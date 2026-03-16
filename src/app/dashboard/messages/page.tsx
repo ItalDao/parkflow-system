@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Search, 
   Send, 
@@ -93,6 +94,7 @@ function displayConversationTitle(c: ConversationListItem, currentUserId: string
 }
 
 export default function MessagesPage() {
+   const router = useRouter();
    const [search, setSearch] = useState('');
    const [role, setRole] = useState<string>('OPERATOR');
    const [currentUserId, setCurrentUserId] = useState<string>('');
@@ -398,8 +400,15 @@ export default function MessagesPage() {
                </div>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-               <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}><Bell size={18} /></button>
-               <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}><MoreHorizontal size={18} /></button>
+                      <button
+                         className="white-card"
+                         style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}
+                         onClick={() => router.push('/dashboard/notifications')}
+                         title="Notificaciones"
+                      >
+                         <Bell size={18} />
+                      </button>
+               <div className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MoreHorizontal size={18} /></div>
             </div>
          </div>
 

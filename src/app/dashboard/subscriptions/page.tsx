@@ -376,9 +376,9 @@ export default function SubscriptionsPage() {
                                                 <Ban size={16} /> Cancelar
                                              </button>
                                           )}
-                                          <button className="white-card" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }} title="Más">
+                                          <div className="white-card" style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }} title="Más">
                                              <MoreHorizontal size={16} />
-                                          </button>
+                                          </div>
                                        </div>
                        </td>
                     </tr>

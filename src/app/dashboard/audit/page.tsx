@@ -18,6 +18,10 @@ export default function AuditPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+   const [showFilters, setShowFilters] = useState(false);
+   const [actionFilter, setActionFilter] = useState<'ALL' | 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN'>('ALL');
+   const [entityFilter, setEntityFilter] = useState('');
+   const [days, setDays] = useState<7 | 30 | 90>(30);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -31,11 +35,35 @@ export default function AuditPage() {
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const filtered = logs.filter(l => 
-    l.action.toLowerCase().includes(search.toLowerCase()) ||
-    l.entity.toLowerCase().includes(search.toLowerCase()) ||
-    l.user.firstName.toLowerCase().includes(search.toLowerCase())
-  );
+   const filtered = logs.filter(l => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q
+         ? true
+         : l.action.toLowerCase().includes(q) ||
+            l.entity.toLowerCase().includes(q) ||
+            l.user.firstName.toLowerCase().includes(q) ||
+            l.user.lastName.toLowerCase().includes(q) ||
+            l.user.email.toLowerCase().includes(q);
+
+      const ef = entityFilter.trim().toLowerCase();
+      const matchesEntity = !ef ? true : String(l.entity || '').toLowerCase().includes(ef);
+
+      const matchesAction = actionFilter === 'ALL'
+         ? true
+         : actionFilter === 'CREATE'
+            ? String(l.action || '').includes('CREATE')
+            : actionFilter === 'UPDATE'
+               ? String(l.action || '').includes('UPDATE')
+               : actionFilter === 'DELETE'
+                  ? String(l.action || '').includes('DELETE')
+                  : String(l.action || '').includes('LOGIN');
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const matchesDate = new Date(l.createdAt) >= cutoff;
+
+      return matchesSearch && matchesEntity && matchesAction && matchesDate;
+   });
 
   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
@@ -51,11 +79,81 @@ export default function AuditPage() {
                <input className="white-card" style={{ border: 'none', padding: '12px 16px 12px 48px', width: '100%', fontSize: '13px', fontWeight: 700 }} placeholder="Buscar por acción, entidad o usuario..." value={search} onChange={e => setSearch(e.target.value)} />
                <Search size={18} style={{ position: 'absolute', left: '16px', top: '12px', color: 'var(--text-muted)' }} />
             </div>
-            <button className="white-card" style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
+            <button className="white-card" style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }} onClick={() => setShowFilters(true)} title="Filtros">
                <Filter size={18} />
             </button>
          </div>
       </div>
+
+         {showFilters && (
+            <div className="modal-overlay" onClick={() => setShowFilters(false)}>
+               <div className="modal-content-premium animate-premium" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 900, marginBottom: '16px' }}>Filtros</h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                     <div>
+                        <label className="input-label">Rango</label>
+                        <select
+                           className="white-card"
+                           value={days}
+                           onChange={(e) => setDays(Number(e.target.value) as 7 | 30 | 90)}
+                           style={{ border: 'none', padding: '12px 14px', width: '100%', fontWeight: 800 }}
+                        >
+                           <option value={7}>Últimos 7 días</option>
+                           <option value={30}>Últimos 30 días</option>
+                           <option value={90}>Últimos 90 días</option>
+                        </select>
+                     </div>
+                     <div>
+                        <label className="input-label">Acción</label>
+                        <select
+                           className="white-card"
+                           value={actionFilter}
+                           onChange={(e) => setActionFilter(e.target.value as any)}
+                           style={{ border: 'none', padding: '12px 14px', width: '100%', fontWeight: 800 }}
+                        >
+                           <option value="ALL">Todas</option>
+                           <option value="CREATE">CREATE*</option>
+                           <option value="UPDATE">UPDATE*</option>
+                           <option value="DELETE">DELETE*</option>
+                           <option value="LOGIN">LOGIN*</option>
+                        </select>
+                     </div>
+                     <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="input-label">Entidad</label>
+                        <input
+                           className="white-card"
+                           value={entityFilter}
+                           onChange={(e) => setEntityFilter(e.target.value)}
+                           placeholder="Ej: Ticket, Payment, User"
+                           style={{ border: 'none', padding: '12px 14px', width: '100%', fontWeight: 800 }}
+                        />
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                     <button
+                        className="white-card"
+                        style={{ padding: '10px 14px', border: 'none', cursor: 'pointer', fontWeight: 900 }}
+                        onClick={() => {
+                           setActionFilter('ALL');
+                           setEntityFilter('');
+                           setDays(30);
+                        }}
+                     >
+                        Limpiar
+                     </button>
+                     <button
+                        className="btn-primary"
+                        style={{ padding: '10px 14px', height: '44px' }}
+                        onClick={() => setShowFilters(false)}
+                     >
+                        Aplicar
+                     </button>
+                  </div>
+               </div>
+            </div>
+         )}
 
       <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
          <div style={{ overflowX: 'auto' }}>
