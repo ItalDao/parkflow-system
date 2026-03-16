@@ -14,6 +14,7 @@ import {
    PlusCircle,
    X
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Vehicle {
   id: string; plate: string; type: string; brand?: string; model?: string; color?: string;
@@ -107,7 +108,7 @@ export default function VehiclesPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            alert((data as { error?: string }).error || 'No se pudo crear el vehículo');
+            toast.error((data as { error?: string }).error || 'No se pudo crear el vehículo');
             return;
          }
 
@@ -128,13 +129,13 @@ export default function VehiclesPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            alert((data as { error?: string }).error || 'No se pudo eliminar');
+            toast.error((data as { error?: string }).error || 'No se pudo eliminar');
             return;
          }
          await fetchData();
       } catch (err) {
          console.error(err);
-         alert('Error al eliminar');
+         toast.error('Error al eliminar');
       }
    };
 

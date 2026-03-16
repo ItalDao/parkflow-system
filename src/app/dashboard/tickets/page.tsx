@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { formatCurrency, formatDate, getStatusLabel, getVehicleTypeIcon } from '@/lib/utils';
 import QRCode from 'qrcode';
+import toast from 'react-hot-toast';
 import { 
   PlusCircle, 
   LogOut, 
@@ -220,8 +221,13 @@ export default function TicketsPage() {
       if (res.ok) {
         setShowEntry(false); setEntryForm({ plate: '', vehicleType: 'CAR', spaceId: '' });
         fetchData();
-      } else { const data = await res.json(); alert(data.error); }
-    } catch { alert('Error al registrar entrada'); }
+         } else {
+             const data = await res.json().catch(() => ({} as { error?: string }));
+             toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
+         }
+      } catch {
+         toast.error('Error al registrar entrada');
+      }
     finally { setProcessing(false); }
   };
 
@@ -273,7 +279,7 @@ export default function TicketsPage() {
     try {
          const cash = cashReceived.trim() ? Number(cashReceived) : undefined;
          if (exitPaymentMethod === 'CASH' && cashReceived.trim() && (!Number.isFinite(cash) || (cash ?? 0) < 0)) {
-            alert('Monto recibido inválido');
+            toast.error('Monto recibido inválido');
             return;
          }
 
@@ -296,8 +302,13 @@ export default function TicketsPage() {
             setLostTicket(false);
             setQuote(null);
         fetchData();
-      } else { const d = await res.json(); alert(d.error); }
-    } catch { alert('Error al registrar salida'); }
+         } else {
+             const d = await res.json().catch(() => ({} as { error?: string }));
+             toast.error((d as { error?: string }).error || 'No se pudo registrar la salida');
+         }
+      } catch {
+         toast.error('Error al registrar salida');
+      }
     finally { setProcessing(false); }
   };
 

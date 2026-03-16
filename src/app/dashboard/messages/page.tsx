@@ -10,6 +10,7 @@ import {
    X,
    MapPin
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 type JwtPayload = { role?: string; userId?: string };
 
@@ -253,7 +254,7 @@ export default function MessagesPage() {
       });
       if (!res.ok) {
          const data = await res.json().catch(() => ({}));
-         alert((data as { error?: string }).error || 'No se pudo crear la conversación');
+         toast.error((data as { error?: string }).error || 'No se pudo crear la conversación');
          return;
       }
       const convo = (await res.json()) as { id?: string };
@@ -281,7 +282,7 @@ export default function MessagesPage() {
 
       if (!res.ok) {
          const data = await res.json().catch(() => ({}));
-         alert((data as { error?: string }).error || 'No se pudo enviar el mensaje');
+         toast.error((data as { error?: string }).error || 'No se pudo enviar el mensaje');
          setComposer(text);
          return;
       }

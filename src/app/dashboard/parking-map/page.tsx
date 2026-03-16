@@ -7,6 +7,7 @@ import {
   X
 } from 'lucide-react';
 import { getVehicleTypeIcon } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 function getAuthHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('accessToken')}`, 'Content-Type': 'application/json' };
@@ -91,7 +92,7 @@ export default function ParkingMapPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert((data as { error?: string }).error || 'No se pudo registrar la entrada');
+        toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
         return;
       }
       setShowEntry(false);
@@ -99,7 +100,7 @@ export default function ParkingMapPage() {
       await fetchZones();
     } catch (err) {
       console.error(err);
-      alert('Error al registrar entrada');
+      toast.error('Error al registrar entrada');
     } finally {
       setProcessing(false);
     }
@@ -116,7 +117,7 @@ export default function ParkingMapPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert((data as { error?: string }).error || 'No se pudo procesar la salida');
+        toast.error((data as { error?: string }).error || 'No se pudo procesar la salida');
         return;
       }
       setShowExit(false);
@@ -124,7 +125,7 @@ export default function ParkingMapPage() {
       await fetchZones();
     } catch (err) {
       console.error(err);
-      alert('Error al procesar salida');
+      toast.error('Error al procesar salida');
     } finally {
       setProcessing(false);
     }

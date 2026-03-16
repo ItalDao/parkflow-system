@@ -13,6 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type PaymentMethod = 'CASH' | 'CARD' | 'DIGITAL_WALLET' | 'PREPAID' | 'MONTHLY';
 
@@ -224,7 +225,7 @@ export default function ShiftsPage() {
           });
           if (!res.ok) {
              const data = await res.json().catch(() => ({}));
-             alert((data as { error?: string }).error || 'No se pudo cargar el reporte');
+             toast.error((data as { error?: string }).error || 'No se pudo cargar el reporte');
              return;
           }
           const data = (await res.json()) as ShiftDetails;
@@ -232,7 +233,7 @@ export default function ShiftsPage() {
           setShowReportModal(true);
        } catch (err) {
           console.error(err);
-          alert('Error al cargar reporte');
+          toast.error('Error al cargar reporte');
        } finally {
           setReportLoading(false);
        }
@@ -268,11 +269,11 @@ export default function ShiftsPage() {
             }
          } else {
             const data = await res.json().catch(() => ({}));
-            alert(data.error || 'No se pudo cerrar el turno');
+            toast.error(data.error || 'No se pudo cerrar el turno');
          }
       } catch (err) {
          console.error(err);
-         alert('Error al cerrar el turno');
+         toast.error('Error al cerrar el turno');
       } finally {
          setClosing(false);
       }
@@ -283,7 +284,7 @@ export default function ShiftsPage() {
       const html = buildShiftPrintableHtml(report);
       const win = window.open('', '_blank', 'noopener,noreferrer');
       if (!win) {
-         alert('No se pudo abrir la ventana de impresión (bloqueada)');
+         toast.error('No se pudo abrir la ventana de impresión (bloqueada)');
          return;
       }
       win.document.open();

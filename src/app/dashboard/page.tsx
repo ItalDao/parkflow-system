@@ -13,6 +13,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { AIPredictionWidget } from '@/components/dashboard/AIPredictionWidget';
 import { AIChatAssistant } from '@/components/dashboard/AIChatAssistant';
+import toast from 'react-hot-toast';
 
 interface Space {
   id: string; number: string; status: string;
@@ -77,10 +78,12 @@ export default function DashboardPage() {
         setEntryForm({ plate: '', vehicleType: 'CAR' });
         fetchData();
       } else {
-        const data = await res.json();
-        alert(data.error);
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
       }
-    } catch { alert('Error al registrar'); }
+    } catch {
+      toast.error('Error al registrar');
+    }
     finally { setProcessing(false); }
   };
 
@@ -96,10 +99,12 @@ export default function DashboardPage() {
         fetchData();
         setSelectedSpace(null);
       } else {
-        const d = await res.json();
-        alert(d.error);
+        const d = await res.json().catch(() => ({} as { error?: string }));
+        toast.error((d as { error?: string }).error || 'No se pudo procesar la salida');
       }
-    } catch { alert('Error al procesar salida'); }
+    } catch {
+      toast.error('Error al procesar salida');
+    }
     finally { setProcessing(false); }
   };
 

@@ -13,6 +13,7 @@ import {
   Globe, 
   PlusCircle,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Rate {
   id: string; name: string; vehicleType: string; price: number; isActive: boolean;
@@ -155,13 +156,14 @@ export default function SettingsPage() {
          if (res.ok) {
             const updated = await res.json();
             setLotDraft(updated);
+            toast.success('Sede guardada');
          } else {
             const data = await res.json().catch(() => ({}));
-            alert(data.error || 'No se pudo guardar la sede');
+            toast.error((data as { error?: string }).error || 'No se pudo guardar la sede');
          }
       } catch (err) {
          console.error(err);
-         alert('Error guardando la sede');
+         toast.error('Error guardando la sede');
       } finally {
          setSavingLot(false);
       }

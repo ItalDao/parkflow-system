@@ -16,6 +16,7 @@ import {
    User,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR' | 'CUSTOMER' | string;
 
@@ -227,11 +228,17 @@ export default function ManagementPage() {
 
    const handleNewRecord = () => {
       if (activeTab === 'lots') {
-         if (!canCreateLots) return alert('Solo SuperAdmin puede crear sedes');
+         if (!canCreateLots) {
+            toast.error('Solo SuperAdmin puede crear sedes');
+            return;
+         }
          setShowCreateLot(true);
          return;
       }
-      if (!canManage) return alert('Operación restringida a administradores');
+      if (!canManage) {
+         toast.error('Operación restringida a administradores');
+         return;
+      }
       if (activeTab === 'zones') {
          setZoneDraft({ name: '', type: 'COVERED', spacesCount: '0', floor: '1', spacePrefix: 'S' });
          setShowCreateZone(true);
@@ -257,7 +264,10 @@ export default function ManagementPage() {
    const submitCreateZone = async () => {
       if (!selectedLotId) return;
       const name = zoneDraft.name.trim();
-      if (!name) return alert('Nombre requerido');
+      if (!name) {
+         toast.error('Nombre requerido');
+         return;
+      }
 
       const spacesCount = Number(zoneDraft.spacesCount || 0);
       const floor = Number(zoneDraft.floor || 1);
@@ -281,14 +291,15 @@ export default function ManagementPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo crear la zona');
+            toast.error(data.error || 'No se pudo crear la zona');
+            return;
          }
 
          setShowCreateZone(false);
          await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         alert('Error creando zona');
+         toast.error('Error creando zona');
       }
    };
 
@@ -296,8 +307,14 @@ export default function ManagementPage() {
       if (!selectedLotId) return;
       const name = rateDraft.name.trim();
       const price = Number(rateDraft.price);
-      if (!name) return alert('Nombre requerido');
-      if (!Number.isFinite(price) || price <= 0) return alert('Precio inválido');
+      if (!name) {
+         toast.error('Nombre requerido');
+         return;
+      }
+      if (!Number.isFinite(price) || price <= 0) {
+         toast.error('Precio inválido');
+         return;
+      }
 
       try {
          const res = await fetch('/api/dashboard', {
@@ -319,14 +336,15 @@ export default function ManagementPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo crear la tarifa');
+            toast.error(data.error || 'No se pudo crear la tarifa');
+            return;
          }
 
          setShowCreateRate(false);
          await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         alert('Error creando tarifa');
+         toast.error('Error creando tarifa');
       }
    };
 
@@ -339,7 +357,10 @@ export default function ManagementPage() {
    const submitEditRate = async () => {
       if (!rateEdit) return;
       const price = Number(rateEdit.price);
-      if (!Number.isFinite(price) || price <= 0) return alert('Precio inválido');
+      if (!Number.isFinite(price) || price <= 0) {
+         toast.error('Precio inválido');
+         return;
+      }
 
       try {
          const res = await fetch('/api/dashboard', {
@@ -357,14 +378,15 @@ export default function ManagementPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo actualizar la tarifa');
+            toast.error(data.error || 'No se pudo actualizar la tarifa');
+            return;
          }
          setShowEditRate(false);
          setRateEdit(null);
          if (selectedLotId) await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         alert('Error actualizando tarifa');
+         toast.error('Error actualizando tarifa');
       }
    };
 
@@ -388,22 +410,32 @@ export default function ManagementPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo actualizar la tarifa');
+            toast.error(data.error || 'No se pudo actualizar la tarifa');
+            return;
          }
          if (selectedLotId) await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         alert('Error actualizando tarifa');
+         toast.error('Error actualizando tarifa');
       }
    };
 
    const saveConfig = async () => {
       if (!selectedLotId) return;
-      if (!canManage) return alert('Operación restringida a administradores');
+      if (!canManage) {
+         toast.error('Operación restringida a administradores');
+         return;
+      }
       const gracePeriod = Number(configDraft.gracePeriod);
       const lostTicketFee = Number(configDraft.lostTicketFee);
-      if (!Number.isFinite(gracePeriod) || gracePeriod < 0) return alert('Tiempo de gracia inválido');
-      if (!Number.isFinite(lostTicketFee) || lostTicketFee < 0) return alert('Penalidad inválida');
+      if (!Number.isFinite(gracePeriod) || gracePeriod < 0) {
+         toast.error('Tiempo de gracia inválido');
+         return;
+      }
+      if (!Number.isFinite(lostTicketFee) || lostTicketFee < 0) {
+         toast.error('Penalidad inválida');
+         return;
+      }
 
       try {
          const res = await fetch('/api/dashboard', {
@@ -420,13 +452,14 @@ export default function ManagementPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo guardar la configuración');
+            toast.error(data.error || 'No se pudo guardar la configuración');
+            return;
          }
          await reloadContext(selectedLotId);
-         alert('Configuración guardada');
+         toast.success('Configuración guardada');
       } catch (err) {
          console.error(err);
-         alert('Error guardando configuración');
+         toast.error('Error guardando configuración');
       }
    };
 
@@ -439,8 +472,14 @@ export default function ManagementPage() {
       const gracePeriod = Number(lotDraft.gracePeriod);
       const lostTicketFee = Number(lotDraft.lostTicketFee);
 
-      if (!name || !address || !city) return alert('Nombre, dirección y ciudad son requeridos');
-      if (!Number.isFinite(totalSpaces) || totalSpaces < 0) return alert('Capacidad inválida');
+      if (!name || !address || !city) {
+         toast.error('Nombre, dirección y ciudad son requeridos');
+         return;
+      }
+      if (!Number.isFinite(totalSpaces) || totalSpaces < 0) {
+         toast.error('Capacidad inválida');
+         return;
+      }
 
       try {
          const res = await fetch('/api/dashboard', {
@@ -465,7 +504,8 @@ export default function ManagementPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            return alert(data.error || 'No se pudo crear la sede');
+            toast.error(data.error || 'No se pudo crear la sede');
+            return;
          }
 
          const created = await res.json();
@@ -478,7 +518,7 @@ export default function ManagementPage() {
          }
       } catch (err) {
          console.error(err);
-         alert('Error creando sede');
+         toast.error('Error creando sede');
       }
    };
 

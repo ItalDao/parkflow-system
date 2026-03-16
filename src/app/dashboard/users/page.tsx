@@ -10,6 +10,7 @@ import {
   PlusCircle,
    MapPin
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface UserData {
   id: string; email: string; firstName: string; lastName: string;
@@ -144,7 +145,7 @@ export default function UsersPage() {
             await fetchUsers(canManageAll ? selectedLotId : undefined);
          } else {
             const data = await res.json().catch(() => ({}));
-            alert(data.error || 'No se pudo crear el usuario');
+                  toast.error((data as { error?: string }).error || 'No se pudo crear el usuario');
       }
     } catch (err) { console.error(err); }
   };

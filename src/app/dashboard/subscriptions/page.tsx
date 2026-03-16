@@ -14,6 +14,7 @@ import {
    Ban
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type JwtPayload = { role?: string; userId?: string };
 
@@ -231,7 +232,7 @@ export default function SubscriptionsPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            alert((data as { error?: string }).error || 'No se pudo guardar la suscripción');
+            toast.error((data as { error?: string }).error || 'No se pudo guardar la suscripción');
             return;
          }
 
@@ -253,7 +254,7 @@ export default function SubscriptionsPage() {
       });
       if (!res.ok) {
          const data = await res.json().catch(() => ({}));
-         alert((data as { error?: string }).error || 'No se pudo cancelar');
+         toast.error((data as { error?: string }).error || 'No se pudo cancelar');
          return;
       }
       await fetchData();
