@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface Payment {
   id: string; amount: number; method: string; status: string; invoiceNumber?: string;
@@ -12,7 +13,24 @@ interface Payment {
 }
 
 import { useRouter } from 'next/navigation';
-import { Banknote, CreditCard, Smartphone, Ticket, CalendarDays, Search, Filter, Download } from 'lucide-react';
+import { Banknote, CreditCard, Smartphone, Ticket, CalendarDays, Search, Download } from 'lucide-react';
+
+type JwtPayload = { role?: string; userId?: string };
+
+function safeDecodeJwt(token: string | null): JwtPayload {
+  try {
+    if (!token) return {};
+    const part = token.split('.')[1];
+    if (!part) return {};
+    let normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = normalized.length % 4;
+    if (pad) normalized += '='.repeat(4 - pad);
+    const decoded = atob(normalized);
+    return JSON.parse(decoded);
+  } catch {
+    return {};
+  }
+}
 
 const methodLabel: Record<string, ReactNode> = {
   CASH: <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-success)' }}><Banknote size={16} /> Efectivo</div>, 
@@ -26,31 +44,85 @@ function getAuthHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('accessToken')}`, 'Content-Type': 'application/json' };
 }
 
+function paymentStatusMeta(status: string | null | undefined): { label: string; cls: string } {
+  switch (status) {
+    case 'COMPLETED':
+      return { label: 'COMPLETADO', cls: 'badge-success' };
+    case 'PENDING':
+      return { label: 'PENDIENTE', cls: 'badge-warning' };
+    case 'FAILED':
+      return { label: 'FALLIDO', cls: 'badge-danger' };
+    case 'REFUNDED':
+      return { label: 'REEMBOLSADO', cls: 'badge-purple' };
+    default:
+      return { label: String(status || 'DESCONOCIDO'), cls: 'badge-info' };
+  }
+}
+
+type Stats = {
+  todayRevenue?: number;
+  todayTransactions?: number;
+};
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [todayRevenue, setTodayRevenue] = useState<number>(0);
+  const [todayTransactions, setTodayTransactions] = useState<number>(0);
   const router = useRouter();
 
   useEffect(() => {
     (async () => {
+      const decoded = safeDecodeJwt(localStorage.getItem('accessToken'));
+      const role = decoded.role || 'OPERATOR';
+      const canView = role === 'SUPER_ADMIN' || role === 'ADMIN';
+      if (!canView) {
+        toast.error('Acceso denegado: pagos requiere permisos de Admin');
+        router.replace('/dashboard');
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res = await fetch('/api/dashboard?resource=payments', { headers: getAuthHeaders() });
+        const headers = getAuthHeaders();
+        const [res, statsRes] = await Promise.all([
+          fetch('/api/dashboard?resource=payments', { headers }),
+          fetch('/api/dashboard?resource=stats', { headers }),
+        ]);
         
-        if (res.status === 401) {
+        if (res.status === 401 || statsRes.status === 401) {
           localStorage.removeItem('accessToken');
           router.push('/');
           return;
         }
 
-        if (res.ok) setPayments(await res.json());
+        if (res.status === 403 || statsRes.status === 403) {
+          toast.error('No tienes permisos para ver pagos');
+          router.replace('/dashboard');
+          return;
+        }
+
+        if (statsRes.ok) {
+          const stats = (await statsRes.json()) as Stats;
+          setTodayRevenue(Number(stats.todayRevenue || 0));
+          setTodayTransactions(Number(stats.todayTransactions || 0));
+        }
+
+        if (res.ok) {
+          const data: unknown = await res.json();
+          setPayments(Array.isArray(data) ? (data as Payment[]) : []);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          toast.error((data as { error?: string }).error || 'No se pudieron cargar los pagos');
+          setPayments([]);
+        }
       } catch (err) { console.error(err); }
       finally { setLoading(false); }
     })();
   }, [router]);
 
-  const totalToday = payments.filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString())
-    .reduce((a, p) => a + p.amount, 0);
+  const completedPayments = useMemo(() => payments.filter((p) => p.status === 'COMPLETED'), [payments]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,7 +136,7 @@ export default function PaymentsPage() {
   }, [payments, query]);
 
   const exportCsv = () => {
-    const rows = filtered.map((p) => ({
+    const rows: Array<Record<string, unknown>> = filtered.map((p) => ({
       factura: p.invoiceNumber || '',
       ticket: p.ticket?.ticketCode || '',
       placa: p.ticket?.vehicle?.plate || '',
@@ -75,14 +147,15 @@ export default function PaymentsPage() {
       estado: p.status,
     }));
 
-    const header = Object.keys(rows[0] || { factura: '', ticket: '', placa: '', metodo: '', monto: 0, operador: '', fecha: '', estado: '' });
+    const defaultRow: Record<string, unknown> = { factura: '', ticket: '', placa: '', metodo: '', monto: 0, operador: '', fecha: '', estado: '' };
+    const header = Object.keys(rows[0] || defaultRow);
     const escape = (v: unknown) => {
       const s = String(v ?? '');
       const needsQuotes = /[\n\r,\"]/g.test(s);
       const escaped = s.replace(/\"/g, '""');
       return needsQuotes ? `"${escaped}"` : escaped;
     };
-    const csv = [header.join(','), ...rows.map(r => header.map(h => escape((r as any)[h])).join(','))].join('\n');
+    const csv = [header.join(','), ...rows.map(r => header.map(h => escape(r[h])).join(','))].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -102,22 +175,22 @@ export default function PaymentsPage() {
         <div className="glass-card glow" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--accent-success)' }} />
           <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Recaudación Hoy</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-success)' }}>{formatCurrency(totalToday)}</div>
+          <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-success)' }}>{formatCurrency(todayRevenue)}</div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Actualizado en tiempo real</div>
         </div>
         <div className="glass-card glow" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--accent-primary)' }} />
           <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Transacciones Finalizadas</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-primary)' }}>{payments.length}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Basado en los últimos 50 registros</div>
+          <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-primary)' }}>{todayTransactions}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Pagos completados hoy</div>
         </div>
         <div className="glass-card glow" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--accent-warning)' }} />
           <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Ticket de Venta Medio</div>
           <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-warning)' }}>
-            {formatCurrency(payments.length > 0 ? payments.reduce((a, p) => a + p.amount, 0) / payments.length : 0)}
+            {formatCurrency(completedPayments.length > 0 ? completedPayments.reduce((a, p) => a + p.amount, 0) / completedPayments.length : 0)}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Promedio de facturación bruta</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Promedio (pagos completados)</div>
         </div>
       </div>
 
@@ -147,7 +220,16 @@ export default function PaymentsPage() {
                 <td style={{ fontWeight: 900, color: 'var(--text-primary)', fontSize: '15px' }}>{formatCurrency(p.amount)}</td>
                 <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{p.operator ? `${p.operator.firstName} ${p.operator.lastName}` : 'Sistema'}</td>
                 <td style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>{formatDate(p.createdAt)}</td>
-                <td><span className="badge badge-success" style={{ padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>COMPLETADO</span></td>
+                <td>
+                  {(() => {
+                    const meta = paymentStatusMeta(p.status);
+                    return (
+                      <span className={`badge ${meta.cls}`} style={{ padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>
+                        {meta.label}
+                      </span>
+                    );
+                  })()}
+                </td>
               </tr>
             ))}
           </tbody>

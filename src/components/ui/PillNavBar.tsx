@@ -41,6 +41,16 @@ type NavbarUser = {
 export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogout: () => void }) {
   const pathname = usePathname();
 
+  const role = String(user?.role || '').toUpperCase();
+  const visibleNavItems = navItems.filter((item) => {
+    if (role === 'OPERATOR') {
+      // OPERATOR: no finanzas ni administración
+      if (item.href === '/dashboard/reports') return false;
+      if (item.href === '/dashboard/management') return false;
+    }
+    return true;
+  });
+
   const roleLabel = (() => {
     const role = String(user?.role || '').toUpperCase();
     if (role === 'SUPER_ADMIN') return 'Super Admin';
@@ -61,7 +71,7 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
 
       {/* Navigation Links */}
       <nav className="nav-pill-group" aria-label="Navegación principal">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link 
@@ -80,9 +90,13 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
       {/* User & Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="icon-btn-pill"><Search size={18} /></button>
+          <Link href="/dashboard/tickets" className="icon-btn-pill" title="Buscar">
+            <Search size={18} />
+          </Link>
           <Link href="/dashboard/messages" className="icon-btn-pill"><MessageSquare size={18} /></Link>
-          <button className="icon-btn-pill"><Bell size={18} /></button>
+          <Link href="/dashboard/notifications" className="icon-btn-pill" title="Notificaciones">
+            <Bell size={18} />
+          </Link>
         </div>
 
         <div style={{ width: '1px', height: '24px', background: 'rgba(0,0,0,0.1)' }} />

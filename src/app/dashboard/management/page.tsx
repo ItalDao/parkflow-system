@@ -10,7 +10,6 @@ import {
    Layers,
    ParkingCircle,
    Tag,
-   MoreHorizontal,
    MapPin,
    Clock,
    User,
@@ -596,7 +595,6 @@ export default function ManagementPage() {
                      <div style={{ padding: '12px', borderRadius: '16px', background: 'var(--bg-primary)' }}>
                         <ParkingCircle size={24} color="var(--accent-gold)" />
                      </div>
-                     <div style={{ color: 'var(--text-muted)', opacity: 0.7 }}><MoreHorizontal size={20} /></div>
                   </div>
                   <h4 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '8px' }}>{zone.name}</h4>
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '24px' }}>{zone.type}</p>

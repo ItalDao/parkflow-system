@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     const resource = searchParams.get('resource');
 
     // Security Hardening: Strict RBAC for sensitive resources
-    if (user.role === 'OPERATOR' && ['audit', 'users', 'subscriptions', 'parking-lot', 'rates', 'telemetry'].includes(resource || '')) {
+    if (user.role === 'OPERATOR' && ['audit', 'users', 'subscriptions', 'parking-lot', 'rates', 'telemetry', 'payments'].includes(resource || '')) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
@@ -143,8 +143,21 @@ export async function GET(request: NextRequest) {
       today.setHours(0, 0, 0, 0);
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
+      const yesterdayStart = new Date(today);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayEnd = new Date(today);
+
+      const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const prevMonthEnd = new Date(monthStart);
+
       const todayPayments = await prisma.payment.aggregate({
         where: { createdAt: { gte: today }, status: 'COMPLETED', parkingLotId: parkingLot.id },
+        _sum: { amount: true },
+        _count: true,
+      });
+
+      const yesterdayPayments = await prisma.payment.aggregate({
+        where: { createdAt: { gte: yesterdayStart, lt: yesterdayEnd }, status: 'COMPLETED', parkingLotId: parkingLot.id },
         _sum: { amount: true },
         _count: true,
       });
@@ -152,10 +165,21 @@ export async function GET(request: NextRequest) {
       const monthPayments = await prisma.payment.aggregate({
         where: { createdAt: { gte: monthStart }, status: 'COMPLETED', parkingLotId: parkingLot.id },
         _sum: { amount: true },
+        _count: true,
+      });
+
+      const prevMonthPayments = await prisma.payment.aggregate({
+        where: { createdAt: { gte: prevMonthStart, lt: prevMonthEnd }, status: 'COMPLETED', parkingLotId: parkingLot.id },
+        _sum: { amount: true },
+        _count: true,
       });
 
       const todayTickets = await prisma.ticket.count({
         where: { createdAt: { gte: today }, parkingLotId: parkingLot.id },
+      });
+
+      const yesterdayTickets = await prisma.ticket.count({
+        where: { createdAt: { gte: yesterdayStart, lt: yesterdayEnd }, parkingLotId: parkingLot.id },
       });
 
       // OPERATOR puede ver ocupación, pero no cifras financieras.
@@ -164,11 +188,19 @@ export async function GET(request: NextRequest) {
             todayRevenue: 0,
             monthRevenue: 0,
             todayTransactions: 0,
+            yesterdayRevenue: 0,
+            yesterdayTransactions: 0,
+            prevMonthRevenue: 0,
+            prevMonthTransactions: 0,
           }
         : {
             todayRevenue: todayPayments._sum.amount || 0,
             monthRevenue: monthPayments._sum.amount || 0,
             todayTransactions: todayPayments._count || 0,
+            yesterdayRevenue: yesterdayPayments._sum.amount || 0,
+            yesterdayTransactions: yesterdayPayments._count || 0,
+            prevMonthRevenue: prevMonthPayments._sum.amount || 0,
+            prevMonthTransactions: prevMonthPayments._count || 0,
           };
 
       return NextResponse.json({
@@ -179,6 +211,7 @@ export async function GET(request: NextRequest) {
         maintenanceSpaces,
         occupancyRate: totalSpaces > 0 ? Math.round((occupiedSpaces / totalSpaces) * 100) : 0,
         todayVehicles: todayTickets,
+        yesterdayVehicles: yesterdayTickets,
         activeTickets: parkingLot.tickets.length,
         ...finance,
         parkingLot: {
@@ -660,6 +693,10 @@ export async function GET(request: NextRequest) {
 
     // Payments
     if (resource === 'payments') {
+      if (user.role === 'OPERATOR') {
+        return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
+      }
+
       const takeParam = Number(searchParams.get('take') || 50);
       const take = Number.isFinite(takeParam) ? Math.min(Math.max(Math.floor(takeParam), 1), 500) : 50;
       const daysParam = searchParams.get('days');

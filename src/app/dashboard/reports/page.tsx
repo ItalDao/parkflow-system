@@ -17,6 +17,19 @@ import { formatCurrency } from '@/lib/utils';
 
 interface ChartData { date: string; day: string; revenue: number; transactions: number }
 interface Stats { monthRevenue: number; todayRevenue: number; avgTicket: number; totalTickets: number }
+type Trend = { pctLabel: string; up: boolean };
+
+function computeTrend(current: number, previous: number): Trend {
+   if (!Number.isFinite(current)) current = 0;
+   if (!Number.isFinite(previous)) previous = 0;
+   if (previous <= 0) {
+      if (current <= 0) return { pctLabel: '0%', up: true };
+      return { pctLabel: '—', up: true };
+   }
+   const pct = Math.round(((current - previous) / previous) * 100);
+   const up = pct >= 0;
+   return { pctLabel: `${Math.abs(pct)}%`, up };
+}
 
 type BreakdownItem = { method: string; total: number; count: number };
 type BreakdownResponse = { days: number; total: number; items: BreakdownItem[] };
@@ -122,6 +135,7 @@ function buildReportsPrintableHtml(args: { days: number; stats: Stats | null; ch
 export default function ReportsPage() {
   const [chart, setChart] = useState<ChartData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+   const [trends, setTrends] = useState<{ month: Trend; today: Trend; avgTicket: Trend; vehicles: Trend } | null>(null);
   const [loading, setLoading] = useState(true);
    const [days, setDays] = useState(7);
    const [breakdown, setBreakdown] = useState<BreakdownResponse | null>(null);
@@ -138,12 +152,33 @@ export default function ReportsPage() {
       if (cRes.ok) setChart(await cRes.json());
       if (sRes.ok) {
         const s = await sRes.json();
-        setStats({
-          monthRevenue: s.monthRevenue,
-          todayRevenue: s.todayRevenue,
-          avgTicket: s.todayRevenue / (s.todayTransactions || 1),
-          totalTickets: s.todayVehicles
-        });
+            const todayRevenue = Number(s.todayRevenue || 0);
+            const todayTransactions = Number(s.todayTransactions || 0);
+            const yesterdayRevenue = Number(s.yesterdayRevenue || 0);
+            const yesterdayTransactions = Number(s.yesterdayTransactions || 0);
+
+            const monthRevenue = Number(s.monthRevenue || 0);
+            const prevMonthRevenue = Number(s.prevMonthRevenue || 0);
+
+            const todayVehicles = Number(s.todayVehicles || 0);
+            const yesterdayVehicles = Number(s.yesterdayVehicles || 0);
+
+            const avgTicketToday = todayRevenue / (todayTransactions || 1);
+            const avgTicketYesterday = yesterdayRevenue / (yesterdayTransactions || 1);
+
+            setStats({
+               monthRevenue,
+               todayRevenue,
+               avgTicket: avgTicketToday,
+               totalTickets: todayVehicles,
+            });
+
+            setTrends({
+               month: computeTrend(monthRevenue, prevMonthRevenue),
+               today: computeTrend(todayRevenue, yesterdayRevenue),
+               avgTicket: computeTrend(avgTicketToday, avgTicketYesterday),
+               vehicles: computeTrend(todayVehicles, yesterdayVehicles),
+            });
       }
          if (bRes.ok) setBreakdown(await bRes.json());
     } catch (err) { console.error(err); }
@@ -223,10 +258,10 @@ export default function ReportsPage() {
       {/* KPI Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
          {[
-           { label: 'Ingresos Mensuales', value: formatCurrency(stats?.monthRevenue || 0), icon: <Banknote size={22} />, up: true, trend: '12%' },
-           { label: 'Ingresos Hoy', value: formatCurrency(stats?.todayRevenue || 0), icon: <TrendingUp size={22} />, up: true, trend: '5%' },
-           { label: 'Ticket Promedio', value: formatCurrency(stats?.avgTicket || 0), icon: <BarChart3 size={22} />, up: false, trend: '2%' },
-           { label: 'Vehículos Hoy', value: String(stats?.totalTickets || 0), icon: <Car size={22} />, up: true, trend: '8%' },
+           { label: 'Ingresos Mensuales', value: formatCurrency(stats?.monthRevenue || 0), icon: <Banknote size={22} />, up: trends?.month.up ?? true, trend: trends?.month.pctLabel ?? '—' },
+           { label: 'Ingresos Hoy', value: formatCurrency(stats?.todayRevenue || 0), icon: <TrendingUp size={22} />, up: trends?.today.up ?? true, trend: trends?.today.pctLabel ?? '—' },
+           { label: 'Ticket Promedio', value: formatCurrency(stats?.avgTicket || 0), icon: <BarChart3 size={22} />, up: trends?.avgTicket.up ?? true, trend: trends?.avgTicket.pctLabel ?? '—' },
+           { label: 'Vehículos Hoy', value: String(stats?.totalTickets || 0), icon: <Car size={22} />, up: trends?.vehicles.up ?? true, trend: trends?.vehicles.pctLabel ?? '—' },
          ].map((kpi, i) => (
            <div key={i} className="glass-card glow" style={{ padding: '32px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
