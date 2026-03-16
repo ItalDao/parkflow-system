@@ -1,17 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   MapPin, 
   Car, 
-  MoreHorizontal, 
-  Calendar, 
-  Clock, 
-  Thermometer, 
-  Droplets,
   Zap,
-  PlusCircle,
+  RotateCcw,
   Loader2,
   AlertCircle
 } from 'lucide-react';
@@ -111,6 +106,25 @@ export default function DashboardPage() {
   const currentZone = zones.find(z => z.id === activeZoneId);
   const activeTicket = selectedSpace?.tickets?.[0];
 
+  const zoneStats = useMemo(() => {
+    const metrics = zones.map((z) => {
+      const total = z.spaces.length;
+      const occupied = z.spaces.filter((s) => s.status === 'OCCUPIED').length;
+      const available = z.spaces.filter((s) => s.status === 'AVAILABLE').length;
+      const reserved = z.spaces.filter((s) => s.status === 'RESERVED').length;
+      const maintenance = z.spaces.filter((s) => s.status === 'MAINTENANCE').length;
+      const occupancy = total > 0 ? Math.round((occupied / total) * 100) : 0;
+      return { id: z.id, name: z.name, total, occupied, available, reserved, maintenance, occupancy };
+    });
+    const byOccupancy = [...metrics].sort((a, b) => b.occupancy - a.occupancy);
+    const byAvailable = [...metrics].sort((a, b) => b.available - a.available);
+    return {
+      metrics: byOccupancy,
+      top: byOccupancy[0] || null,
+      mostAvailable: byAvailable[0] || null,
+    };
+  }, [zones]);
+
   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
   return (
@@ -127,7 +141,7 @@ export default function DashboardPage() {
                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Panel de control interactivo de infraestructura</span>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-               <button onClick={fetchData} className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><PlusCircle size={18} /></button>
+              <button onClick={fetchData} className="white-card" title="Actualizar" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><RotateCcw size={18} /></button>
             </div>
           </div>
 
@@ -185,27 +199,26 @@ export default function DashboardPage() {
         {/* Bottom Small Cards Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr 1.2fr', gap: '32px' }}>
           
-          {/* Environmental Info */}
+           {/* Operational Snapshot */}
           <div className="glass-card" style={{ padding: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Información Ambiental</h3>
-               <MoreHorizontal size={16} color="var(--text-muted)" />
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Estado Operativo</h3>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-               <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                     <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temperatura</span>
-                     <span style={{ fontSize: '20px', fontWeight: 900 }}>24°C</span>
-                  </div>
-                  <Thermometer size={20} color="var(--accent-gold)" />
-               </div>
-               <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                     <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Humedad</span>
-                     <span style={{ fontSize: '20px', fontWeight: 900 }}>58%</span>
-                  </div>
-                  <Droplets size={20} color="var(--accent-gold)" />
-               </div>
+              <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Reservados</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900 }}>{stats?.reservedSpaces ?? 0}</span>
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>ESPACIOS</div>
+              </div>
+              <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mantenimiento</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900 }}>{stats?.maintenanceSpaces ?? 0}</span>
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>ESPACIOS</div>
+              </div>
             </div>
           </div>
 
@@ -276,16 +289,26 @@ export default function DashboardPage() {
              )}
           </div>
 
-          {/* Noise Level */}
+           {/* Occupancy Snapshot */}
           <div className="glass-card" style={{ padding: '32px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Nivel de Ruido</h3>
-               <MoreHorizontal size={16} color="var(--text-muted)" />
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Ocupación Global</h3>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', justifyContent: 'center', height: '110px' }}>
-               <Zap size={48} color="var(--accent-gold)" style={{ opacity: 0.1 }} />
-               <div style={{ fontSize: '24px', fontWeight: 900 }}>42 dB</div>
-               <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-success)' }}>NIVEL ÓPTIMO</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ocupación</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900 }}>{stats?.occupancyRate ?? 0}%</span>
+                </div>
+                <Zap size={20} color="var(--accent-gold)" style={{ opacity: 0.6 }} />
+              </div>
+              <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Disponibles</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900 }}>{stats?.availableSpaces ?? 0}</span>
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>DE {stats?.totalSpaces ?? 0}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -301,39 +324,52 @@ export default function DashboardPage() {
         <div className="glass-card" style={{ padding: '40px' }}>
            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Resumen de Ocupación</h3>
-              <MoreHorizontal size={20} color="var(--text-muted)" />
            </div>
            
            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '100px', marginBottom: '40px' }}>
-              {[80, 45, 90, 65, 30, 85, 40, 75, 55, 90, 60, 40, 85, 70, 95, 20, 10, 5].map((val, i) => (
-                <div key={i} style={{ 
-                  flex: 1, height: `${val}%`, 
-                  background: i < 15 ? 'var(--accent-gold)' : '#e2e8f0',
+              {(zoneStats.metrics.length ? zoneStats.metrics.slice(0, 12) : []).map((z) => (
+                <div key={z.id} title={`${z.name}: ${z.occupancy}%`} style={{ 
+                  flex: 1, height: `${Math.max(6, z.occupancy)}%`, 
+                  background: z.occupancy >= 85 ? 'var(--accent-danger)' : z.occupancy >= 60 ? 'var(--accent-gold)' : 'var(--text-primary)',
                   borderRadius: '4px',
-                  transition: 'height 1s ease-out'
+                  transition: 'height 0.6s ease-out',
+                  opacity: 0.9
                 }} />
               ))}
+              {zoneStats.metrics.length === 0 && (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  Sin datos de zonas
+                </div>
+              )}
            </div>
 
            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="white-card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(233, 185, 73, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {zoneStats.top && (
+                <div className="white-card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(233, 185, 73, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MapPin size={20} color="var(--accent-gold)" />
-                 </div>
-                 <div>
-                    <div style={{ fontSize: '15px', fontWeight: 900 }}>Zona A (Cubierta)</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Ocupación Crítica (95%)</div>
-                 </div>
-              </div>
-              <div className="white-card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Clock size={20} color="var(--text-primary)" />
-                 </div>
-                 <div>
-                    <div style={{ fontSize: '15px', fontWeight: 900 }}>2h 45m</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Estancia Promedio Hoy</div>
-                 </div>
-              </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 900 }}>{zoneStats.top.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                      Mayor ocupación ({zoneStats.top.occupancy}%) · {zoneStats.top.occupied}/{zoneStats.top.total}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {zoneStats.mostAvailable && (
+                <div className="white-card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Car size={20} color="var(--text-primary)" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 900 }}>{zoneStats.mostAvailable.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>
+                      Más disponibles ({zoneStats.mostAvailable.available}) · {zoneStats.mostAvailable.occupancy}% ocupación
+                    </div>
+                  </div>
+                </div>
+              )}
            </div>
         </div>
 

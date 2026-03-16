@@ -1,26 +1,162 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sparkles, X, Send, Bot, User } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Sparkles, X, Send, Bot, User, HelpCircle } from 'lucide-react';
+
+type DashboardStats = {
+  occupancyRate?: number;
+  totalSpaces?: number;
+  occupiedSpaces?: number;
+  availableSpaces?: number;
+  reservedSpaces?: number;
+  maintenanceSpaces?: number;
+  todayVehicles?: number;
+  parkingLot?: { name?: string };
+};
+
+type Zone = {
+  id: string;
+  name: string;
+  spaces: Array<{ status: string }>;
+};
 
 export function AIChatAssistant() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: '¡Hola! Soy Parky, tu asistente de ParkingOS. ¿En qué puedo ayudarte hoy?' }
+    { role: 'assistant', text: 'Hola. Puedo mostrar métricas en vivo y abrir módulos. Escribe "ayuda" para ver comandos.' }
   ]);
   const [input, setInput] = useState('');
 
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [loadingContext, setLoadingContext] = useState(false);
+
+  const headers = useMemo(() => ({ Authorization: `Bearer ${localStorage.getItem('accessToken')}` }), []);
+
+  const loadContext = useCallback(async () => {
+    setLoadingContext(true);
+    try {
+      const [statsRes, zonesRes] = await Promise.all([
+        fetch('/api/dashboard?resource=stats', { headers }),
+        fetch('/api/dashboard?resource=zones', { headers }),
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (zonesRes.ok) setZones(await zonesRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingContext(false);
+    }
+  }, [headers]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void loadContext();
+  }, [isOpen, loadContext]);
+
+  const pushAssistant = (text: string) => setMessages((prev) => [...prev, { role: 'assistant', text }]);
+
+  const zoneSummary = useCallback(() => {
+    if (!zones.length) return 'No hay zonas cargadas.';
+    const metrics = zones.map((z) => {
+      const total = z.spaces.length;
+      const occupied = z.spaces.filter((s) => s.status === 'OCCUPIED').length;
+      const occupancy = total ? Math.round((occupied / total) * 100) : 0;
+      return { name: z.name, total, occupied, occupancy };
+    }).sort((a, b) => b.occupancy - a.occupancy);
+    const top = metrics.slice(0, 3).map((m) => `- ${m.name}: ${m.occupancy}% (${m.occupied}/${m.total})`).join('\n');
+    return `Top zonas por ocupación:\n${top}`;
+  }, [zones]);
+
+  const helpText = useMemo(() => {
+    return [
+      'Comandos disponibles:',
+      '- ayuda',
+      '- ocupacion',
+      '- zonas',
+      '- actualizar',
+      '- ir tickets | ir turnos | ir reportes | ir pagos | ir suscripciones | ir usuarios | ir vehiculos | ir auditoria | ir mapa | ir notificaciones',
+    ].join('\n');
+  }, []);
+
+  const handleCommand = useCallback(async (raw: string) => {
+    const text = raw.trim();
+    const cmd = text.toLowerCase();
+
+    if (!cmd) return;
+
+    if (cmd === 'ayuda' || cmd === 'help' || cmd === '?' || cmd === 'comandos') {
+      pushAssistant(helpText);
+      return;
+    }
+
+    if (cmd === 'actualizar' || cmd === 'refresh' || cmd === 'recargar') {
+      await loadContext();
+      pushAssistant('Listo. Datos actualizados.');
+      return;
+    }
+
+    if (cmd.includes('ocupacion')) {
+      const lotName = stats?.parkingLot?.name ? ` (${stats.parkingLot.name})` : '';
+      pushAssistant(
+        `Ocupación${lotName}: ${stats?.occupancyRate ?? 0}%\n` +
+        `- Ocupados: ${stats?.occupiedSpaces ?? 0}/${stats?.totalSpaces ?? 0}\n` +
+        `- Disponibles: ${stats?.availableSpaces ?? 0}\n` +
+        `- Reservados: ${stats?.reservedSpaces ?? 0}\n` +
+        `- Mantenimiento: ${stats?.maintenanceSpaces ?? 0}\n` +
+        `- Vehículos hoy: ${stats?.todayVehicles ?? 0}`
+      );
+      return;
+    }
+
+    if (cmd === 'zonas' || cmd.startsWith('zona')) {
+      pushAssistant(zoneSummary());
+      return;
+    }
+
+    if (cmd.startsWith('ir ')) {
+      const target = cmd.replace(/^ir\s+/, '').replace(/^a\s+/, '').trim();
+      const routes: Record<string, string> = {
+        'tickets': '/dashboard/tickets',
+        'turnos': '/dashboard/shifts',
+        'reportes': '/dashboard/reports',
+        'pagos': '/dashboard/payments',
+        'suscripciones': '/dashboard/subscriptions',
+        'usuarios': '/dashboard/users',
+        'vehiculos': '/dashboard/vehicles',
+        'vehículos': '/dashboard/vehicles',
+        'auditoria': '/dashboard/audit',
+        'auditoría': '/dashboard/audit',
+        'mapa': '/dashboard/parking-map',
+        'notificaciones': '/dashboard/notifications',
+        'mensajes': '/dashboard/messages',
+        'gestion': '/dashboard/management',
+        'gestión': '/dashboard/management',
+        'configuracion': '/dashboard/settings',
+        'configuración': '/dashboard/settings',
+        'dashboard': '/dashboard',
+      };
+      const route = routes[target];
+      if (!route) {
+        pushAssistant(`No reconozco el destino "${target}".\n\n${helpText}`);
+        return;
+      }
+      pushAssistant(`Abriendo ${route}...`);
+      router.push(route);
+      return;
+    }
+
+    pushAssistant(`No entendí "${text}".\n\n${helpText}`);
+  }, [helpText, loadContext, pushAssistant, router, stats, zoneSummary]);
+
   const send = () => {
     if (!input) return;
-    setMessages([...messages, { role: 'user', text: input }]);
+    const text = input;
+    setMessages((prev) => [...prev, { role: 'user', text }]);
     setInput('');
-    // Simulated AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        text: 'Analizando infraestructura... He detectado que la Zona B está al 90% de su capacidad. ¿Deseas redirigir nuevos ingresos a la Zona D?' 
-      }]);
-    }, 1000);
+    void handleCommand(text);
   };
 
   return (
@@ -52,7 +188,7 @@ export function AIChatAssistant() {
           overflow: 'hidden', border: '1px solid var(--border-color)'
         }}>
           {/* Header */}
-          <div style={{ 
+           <div style={{ 
             padding: '24px', background: 'var(--text-primary)', color: 'white',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
@@ -61,8 +197,10 @@ export function AIChatAssistant() {
                   <Bot size={20} color="var(--accent-gold)" />
                </div>
                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 900 }}>Parky AI</div>
-                  <div style={{ fontSize: '10px', opacity: 0.6, fontWeight: 800 }}>ASISTENTE INTELIGENTE</div>
+                <div style={{ fontSize: '15px', fontWeight: 900 }}>Asistente</div>
+                <div style={{ fontSize: '10px', opacity: 0.6, fontWeight: 800 }}>
+                  {loadingContext ? 'ACTUALIZANDO DATOS…' : 'COMANDOS RÁPIDOS'}
+                </div>
                </div>
             </div>
             <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
@@ -104,7 +242,7 @@ export function AIChatAssistant() {
              <input 
                className="white-card" 
                style={{ flex: 1, border: 'none', padding: '12px 16px', fontSize: '14px', fontWeight: 700 }}
-               placeholder="Escribe un comando..."
+               placeholder="Escribe un comando (ej: ocupacion, zonas, ir tickets)…"
                value={input}
                onChange={e => setInput(e.target.value)}
                onKeyDown={e => e.key === 'Enter' && send()}
@@ -117,7 +255,7 @@ export function AIChatAssistant() {
                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
                }}
              >
-                <Send size={18} />
+                {input.trim().toLowerCase() === 'ayuda' ? <HelpCircle size={18} /> : <Send size={18} />}
              </button>
           </div>
         </div>

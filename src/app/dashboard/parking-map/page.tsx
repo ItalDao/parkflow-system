@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Map as MapIcon, 
-  MoreHorizontal,
   RotateCcw,
   X
 } from 'lucide-react';
@@ -146,7 +145,6 @@ export default function ParkingMapPage() {
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
                <button onClick={fetchZones} className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><RotateCcw size={18} /></button>
-               <div className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MoreHorizontal size={18} /></div>
             </div>
           </div>
 

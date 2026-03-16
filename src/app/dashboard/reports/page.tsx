@@ -8,7 +8,6 @@ import {
   Car, 
   Calendar, 
   Download, 
-  MoreHorizontal,
   ArrowUpRight,
   ArrowDownRight,
    Search,
@@ -247,7 +246,6 @@ export default function ReportsPage() {
          <div className="glass-card" style={{ padding: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
                <h3 style={{ fontSize: '18px', fontWeight: 900 }}>Flujo de Ingresos Diarios</h3>
-               <MoreHorizontal size={20} color="var(--text-muted)" />
             </div>
             
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '24px', height: '300px', paddingBottom: '32px', borderBottom: '1px solid var(--border-color)' }}>

@@ -6,7 +6,6 @@ import {
   Search, 
   Send, 
   Bell, 
-  MoreHorizontal,
    PlusCircle,
    X,
    MapPin
@@ -408,7 +407,6 @@ export default function MessagesPage() {
                       >
                          <Bell size={18} />
                       </button>
-               <div className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MoreHorizontal size={18} /></div>
             </div>
          </div>
 
