@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Zap, TrendingUp, Info } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export function AIPredictionWidget() {
   const [occupancy, setOccupancy] = useState(0);
@@ -13,11 +14,16 @@ export function AIPredictionWidget() {
         const res = await fetch('/api/dashboard?resource=stats', {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
         });
-        if (res.ok) {
-          const data = await res.json();
-          setOccupancy(data.occupancyRate);
+        if (!res.ok) {
+          toast.error('No se pudo cargar el pronostico');
+          return;
         }
-      } catch (err) { console.error(err); }
+        const data = await res.json();
+        setOccupancy(data.occupancyRate);
+      } catch (err) {
+        console.error(err);
+        toast.error('No se pudo cargar el pronostico');
+      }
       finally { setLoading(false); }
     };
     fetchStats();

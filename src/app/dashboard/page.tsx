@@ -49,7 +49,10 @@ export default function DashboardPage() {
         setZones(data);
         if (data.length > 0 && !activeZoneId) setActiveZoneId(data[0].id);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo cargar el dashboard');
+    }
     finally { setLoading(false); }
   }, [activeZoneId]);
 

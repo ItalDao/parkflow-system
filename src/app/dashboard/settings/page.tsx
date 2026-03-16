@@ -90,6 +90,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
+         toast.error('No se pudo cargar la sede');
       }
    }, [router]);
 
@@ -108,6 +109,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
+         toast.error('No se pudo cargar la telemetria');
       }
    }, [router]);
 
@@ -122,7 +124,10 @@ export default function SettingsPage() {
             return;
          }
       if (res.ok) setRates(await res.json());
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar las tarifas');
+      }
   }, [router]);
 
   useEffect(() => {
@@ -178,7 +183,14 @@ export default function SettingsPage() {
         body: JSON.stringify({ resource: 'rates', id: rate.id, data: rate })
       });
       if (res.ok) fetchRates();
-    } catch (err) { console.error(err); }
+         else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo actualizar la tarifa');
+         }
+      } catch (err) {
+         console.error(err);
+         toast.error('Error actualizando la tarifa');
+      }
     finally { setSaving(null); }
   };
 
@@ -193,8 +205,14 @@ export default function SettingsPage() {
         setShowCreateRate(false);
         setNewRate({ name: '', vehicleType: 'CAR', price: 0 });
         fetchRates();
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo crear la tarifa');
+         }
+      } catch (err) {
+         console.error(err);
+         toast.error('Error creando la tarifa');
       }
-    } catch (err) { console.error(err); }
   };
 
    if (!canManage) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 800 }}>Acceso restringido a administradores.</div>;

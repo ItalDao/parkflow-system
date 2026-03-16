@@ -14,6 +14,7 @@ import {
    FileDown
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface ChartData { date: string; day: string; revenue: number; transactions: number }
 interface Stats { monthRevenue: number; todayRevenue: number; avgTicket: number; totalTickets: number }
@@ -181,7 +182,10 @@ export default function ReportsPage() {
             });
       }
          if (bRes.ok) setBreakdown(await bRes.json());
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar los reportes');
+      }
     finally { setLoading(false); }
    }, [days]);
 
@@ -205,7 +209,11 @@ export default function ReportsPage() {
    const exportPaymentsCsv = async () => {
       try {
          const res = await fetch(`/api/dashboard?resource=payments&days=${days}&take=500`, { headers: getAuthHeaders() });
-         if (!res.ok) return;
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo exportar');
+            return;
+         }
          const payments: any[] = await res.json();
          const rows = payments.map((p) => ({
             factura: p.invoiceNumber || '',
@@ -230,6 +238,7 @@ export default function ReportsPage() {
          URL.revokeObjectURL(url);
       } catch (err) {
          console.error(err);
+         toast.error('No se pudo exportar');
       }
    };
 

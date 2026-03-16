@@ -99,8 +99,17 @@ export default function UsersPage() {
     try {
          const qs = lotId ? `&parkingLotId=${encodeURIComponent(lotId)}` : '';
          const res = await fetch(`/api/dashboard?resource=users${qs}`, { headers: authHeaders() });
-      if (res.ok) setUsers(await res.json());
-    } catch (err) { console.error(err); }
+         if (res.ok) {
+            setUsers(await res.json());
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudieron cargar usuarios');
+            setUsers([]);
+         }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar usuarios');
+      }
     finally { setLoading(false); }
   };
 
@@ -120,6 +129,7 @@ export default function UsersPage() {
          await fetchUsers(currentRole === 'SUPER_ADMIN' ? effective : undefined);
       } catch (err) {
          console.error(err);
+         toast.error('No se pudieron cargar usuarios');
          setLoading(false);
       }
    };
@@ -134,8 +144,14 @@ export default function UsersPage() {
       if (res.ok) {
         setEditingUser(null);
             await fetchUsers(canManageAll ? selectedLotId : undefined);
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo actualizar el usuario');
       }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo actualizar el usuario');
+      }
   };
 
   const handleCreate = async () => {
@@ -153,7 +169,10 @@ export default function UsersPage() {
             const data = await res.json().catch(() => ({}));
                   toast.error((data as { error?: string }).error || 'No se pudo crear el usuario');
       }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo eliminar');
+      }
   };
 
   const handleDelete = async (id: string) => {
@@ -171,7 +190,12 @@ export default function UsersPage() {
         method: 'DELETE',
             headers: authHeaders()
       });
-         if (res.ok) await fetchUsers(canManageAll ? selectedLotId : undefined);
+             if (res.ok) {
+                await fetchUsers(canManageAll ? selectedLotId : undefined);
+             } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error((data as { error?: string }).error || 'No se pudo eliminar');
+             }
     } catch (err) { console.error(err); }
   };
 

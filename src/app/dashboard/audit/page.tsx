@@ -13,6 +13,20 @@ import {
   Database
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import toast from 'react-hot-toast';
+
+type Trend = { pctLabel: string; up: boolean; hasPrev: boolean };
+
+function computeTrend(current: number, previous: number): Trend {
+   if (!Number.isFinite(current)) current = 0;
+   if (!Number.isFinite(previous)) previous = 0;
+   if (previous <= 0) {
+      if (current <= 0) return { pctLabel: '0%', up: true, hasPrev: false };
+      return { pctLabel: '—', up: true, hasPrev: false };
+   }
+   const pct = Math.round(((current - previous) / previous) * 100);
+   return { pctLabel: `${Math.abs(pct)}%`, up: pct >= 0, hasPrev: true };
+}
 
 export default function AuditPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -29,7 +43,10 @@ export default function AuditPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (res.ok) setLogs(await res.json());
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo cargar la auditoria');
+      }
     finally { setLoading(false); }
   }, []);
 
@@ -64,6 +81,21 @@ export default function AuditPage() {
 
       return matchesSearch && matchesEntity && matchesAction && matchesDate;
    });
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(todayStart.getDate() - 1);
+
+  const todayCount = logs.filter(l => new Date(l.createdAt) >= todayStart).length;
+  const yesterdayCount = logs.filter(l => {
+     const dt = new Date(l.createdAt);
+     return dt >= yesterdayStart && dt < todayStart;
+  }).length;
+  const dayTrend = computeTrend(todayCount, yesterdayCount);
+  const dayTrendText = dayTrend.hasPrev
+     ? `${dayTrend.up ? '+' : '-'}${dayTrend.pctLabel} vs ayer`
+     : 'Sin datos comparativos';
 
   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
@@ -215,8 +247,10 @@ export default function AuditPage() {
             <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                <Activity size={18} color="var(--accent-gold)" /> Operaciones Hoy
             </h4>
-            <div style={{ fontSize: '32px', fontWeight: 900 }}>{logs.length}</div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '8px' }}>+12% vs día anterior</div>
+            <div style={{ fontSize: '32px', fontWeight: 900 }}>{todayCount}</div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: dayTrend.hasPrev ? (dayTrend.up ? 'var(--accent-success)' : 'var(--accent-danger)') : 'var(--text-muted)', marginTop: '8px' }}>
+              {dayTrendText}
+            </div>
          </div>
          <div className="glass-card" style={{ padding: '32px' }}>
             <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>

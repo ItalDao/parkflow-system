@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, X, Send, Bot, User, HelpCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 type DashboardStats = {
   occupancyRate?: number;
@@ -46,6 +47,7 @@ export function AIChatAssistant() {
       if (zonesRes.ok) setZones(await zonesRes.json());
     } catch (err) {
       console.error(err);
+      toast.error('No se pudo cargar el contexto del asistente');
     } finally {
       setLoadingContext(false);
     }

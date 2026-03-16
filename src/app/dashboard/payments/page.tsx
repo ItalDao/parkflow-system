@@ -117,7 +117,10 @@ export default function PaymentsPage() {
           toast.error((data as { error?: string }).error || 'No se pudieron cargar los pagos');
           setPayments([]);
         }
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+        toast.error('No se pudieron cargar los pagos');
+      }
       finally { setLoading(false); }
     })();
   }, [router]);

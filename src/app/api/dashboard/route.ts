@@ -1718,7 +1718,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Extend Duration Logic (demo-safe; audit only)
+    // Extend Duration Logic (guarded; audit only)
     if (resource === 'extend') {
       const { ticketId, additionalHours } = body;
       const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });

@@ -192,7 +192,10 @@ export default function ShiftsPage() {
       
       if (currRes.ok) setActiveShift(await currRes.json());
       if (histRes.ok) setHistory(await histRes.json());
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar los turnos');
+      }
     finally { setLoading(false); }
    }, [historyExpanded]);
 
@@ -213,8 +216,14 @@ export default function ShiftsPage() {
         setShowOpenModal(false);
             setInitialCash('');
         fetchData();
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo abrir el turno');
       }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo abrir el turno');
+      }
   };
 
     const fetchShiftReport = async (shiftId: string) => {

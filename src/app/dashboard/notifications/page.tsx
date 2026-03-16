@@ -51,41 +51,74 @@ export default function NotificationsPage() {
         router.push('/');
         return;
       }
-      if (res.ok) setNotifications(await res.json());
-    } catch (err) { console.error(err); }
+      if (res.ok) {
+        setNotifications(await res.json());
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as { error?: string }).error || 'No se pudieron cargar notificaciones');
+        setNotifications([]);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudieron cargar notificaciones');
+    }
     finally { setLoading(false); }
   };
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch('/api/dashboard', {
+      const res = await fetch('/api/dashboard', {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ resource: 'notifications', id, data: { isRead: true } })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as { error?: string }).error || 'No se pudo actualizar');
+        return;
+      }
       fetchNotifications();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo actualizar');
+    }
   };
 
   const deleteNotification = async (id: string) => {
     try {
-      await fetch(`/api/dashboard?resource=notifications&id=${id}`, {
+      const res = await fetch(`/api/dashboard?resource=notifications&id=${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as { error?: string }).error || 'No se pudo eliminar');
+        return;
+      }
       fetchNotifications();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo eliminar');
+    }
   };
 
   const markAllRead = async () => {
     try {
-      await fetch('/api/dashboard', {
+      const res = await fetch('/api/dashboard', {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ resource: 'notifications', data: { action: 'markAllRead' } })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as { error?: string }).error || 'No se pudo actualizar');
+        return;
+      }
       fetchNotifications();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo actualizar');
+    }
   };
 
   const clearAll = async () => {

@@ -61,8 +61,17 @@ export default function VehiclesPage() {
       const res = await fetch('/api/dashboard?resource=vehicles', { 
             headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` } 
       });
-      if (res.ok) setVehicles(await res.json());
-    } catch (err) { console.error(err); }
+         if (res.ok) {
+            setVehicles(await res.json());
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudieron cargar los vehiculos');
+            setVehicles([]);
+         }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar los vehiculos');
+      }
     finally { setLoading(false); }
   }, []);
 
@@ -86,8 +95,14 @@ export default function VehiclesPage() {
       if (res.ok) {
         setEditingVehicle(null);
         fetchData();
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo actualizar el vehiculo');
       }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo actualizar el vehiculo');
+      }
   };
 
    const handleCreate = async () => {
@@ -121,6 +136,9 @@ export default function VehiclesPage() {
          setShowCreate(false);
          setNewVehicle({ plate: '', type: 'CAR', brand: '', model: '', color: '', isBlacklisted: false, blacklistReason: '' });
          await fetchData();
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo crear el vehiculo');
       } finally {
          setCreating(false);
       }

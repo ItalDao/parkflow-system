@@ -173,7 +173,10 @@ export default function TicketsPage() {
       ]);
       if (ticketsRes.ok) setTickets(await ticketsRes.json());
       if (zonesRes.ok) setZones(await zonesRes.json());
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar los tickets');
+      }
     finally { setLoading(false); }
   }, [filter]);
 
@@ -203,6 +206,7 @@ export default function TicketsPage() {
          } catch (err) {
             console.error('QR generation failed:', err);
             if (!cancelled) setViewingQrDataUrl(null);
+            toast.error('No se pudo generar el QR');
          }
       })();
       return () => {
@@ -247,6 +251,7 @@ export default function TicketsPage() {
          setExitTicket(data[0] || null);
       } catch (err) {
          console.error(err);
+         toast.error('No se pudo buscar el ticket');
          setExitTicket(null);
       }
    };
@@ -266,6 +271,7 @@ export default function TicketsPage() {
             if (!cancelled) setQuote(data);
          } catch (err) {
             console.error(err);
+            toast.error('No se pudo calcular la tarifa');
          }
       })();
       return () => {
@@ -419,6 +425,7 @@ export default function TicketsPage() {
                                                    w.document.close();
                                                 } catch (err) {
                                                    console.error(err);
+                                                   toast.error('No se pudo generar el QR para imprimir');
                                                    const w = window.open('', '_blank', 'width=640,height=760');
                                                    if (!w) return;
                                                    w.document.open();

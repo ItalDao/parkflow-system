@@ -112,8 +112,15 @@ export default function SubscriptionsPage() {
          if (res.ok) {
             const data: unknown = await res.json();
             setSubscriptions(Array.isArray(data) ? (data as SubscriptionData[]) : []);
+             } else {
+                  const data = await res.json().catch(() => ({}));
+                  toast.error((data as { error?: string }).error || 'No se pudieron cargar las suscripciones');
+                  setSubscriptions([]);
          }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudieron cargar las suscripciones');
+      }
     finally { setLoading(false); }
   }, []);
 
@@ -245,6 +252,9 @@ export default function SubscriptionsPage() {
          setShowCreate(false);
          setEditing(null);
          await fetchData();
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo guardar la suscripcion');
       } finally {
          setSaving(false);
       }
@@ -261,17 +271,22 @@ export default function SubscriptionsPage() {
       }
       setPendingCancelId(null);
       if (cancelTimer.current) clearTimeout(cancelTimer.current);
-      const res = await fetch('/api/dashboard', {
-         method: 'PUT',
-         headers: getAuthHeaders(),
-         body: JSON.stringify({ resource: 'subscriptions', id: s.id, data: { status: 'CANCELLED', autoRenew: false } }),
-      });
-      if (!res.ok) {
-         const data = await res.json().catch(() => ({}));
-         toast.error((data as { error?: string }).error || 'No se pudo cancelar');
-         return;
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ resource: 'subscriptions', id: s.id, data: { status: 'CANCELLED', autoRenew: false } }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo cancelar');
+            return;
+         }
+         await fetchData();
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo cancelar');
       }
-      await fetchData();
    };
 
   if (loading) return <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
