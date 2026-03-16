@@ -6,9 +6,8 @@ import { LogIn, Database, Loader2, ParkingCircle, Mail, Lock, Eye, EyeOff, Alert
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-  const isProd = process.env.NODE_ENV === 'production';
-  const [email, setEmail] = useState(isProd ? '' : 'admin@parkingos.com');
-  const [password, setPassword] = useState(isProd ? '' : 'Admin123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -73,22 +72,7 @@ export default function LoginPage() {
       const seedResult = await res.json();
       
       if (res.ok) {
-        // Auto-login after successful seed
-        const loginRes = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', email: 'admin@parkingos.com', password: 'Admin123!' }),
-        });
-        const data = await loginRes.json();
-        if (loginRes.ok) {
-          localStorage.setItem('accessToken', data.accessToken);
-          localStorage.setItem('refreshToken', data.refreshToken);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          toast.success('Datos sincronizados y sesión iniciada');
-          router.replace('/dashboard');
-        } else {
-          toast.success('Datos sincronizados. Inicia sesión.');
-        }
+        toast.success('Datos sincronizados. Inicia sesión.');
       } else {
         toast.error(seedResult.error || 'Error al inicializar');
       }
@@ -169,7 +153,7 @@ export default function LoginPage() {
                     type="email"
                     inputMode="email"
                     autoComplete="email"
-                    placeholder="admin@parkingos.com"
+                    placeholder="correo@empresa.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -240,21 +224,6 @@ export default function LoginPage() {
             Acceder al Panel
           </button>
 
-          {!isProd && (
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('admin@parkingos.com');
-                setPassword('Admin123!');
-                toast('Credenciales demo cargadas');
-              }}
-              className="white-card"
-              style={{ border: 'none', height: '48px', borderRadius: '16px', fontWeight: 900, cursor: 'pointer' }}
-              disabled={loading || seeding}
-            >
-              Usar credenciales demo
-            </button>
-          )}
         </form>
 
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
