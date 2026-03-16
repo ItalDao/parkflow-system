@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
    PlusCircle,
    Settings,
@@ -75,6 +76,7 @@ function safeDecodeJwt(token: string | null): { role?: Role; userId?: string } {
 }
 
 export default function ManagementPage() {
+   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'zones' | 'rates' | 'lots' | 'customers' | 'config'>('zones');
    const [zones, setZones] = useState<Zone[]>([]);
    const [rates, setRates] = useState<Rate[]>([]);
@@ -240,7 +242,10 @@ export default function ManagementPage() {
          setShowCreateRate(true);
          return;
       }
-      alert('Este módulo se completa en la siguiente fase.');
+      if (activeTab === 'customers') {
+         router.push('/dashboard/subscriptions?new=1');
+         return;
+      }
    };
 
    const handleLotChange = async (nextLotId: string) => {
@@ -501,9 +506,11 @@ export default function ManagementPage() {
                      </select>
                   </div>
                )}
-               <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }} onClick={handleNewRecord}>
-                  <PlusCircle size={18} /> Nuevo Registro
-               </button>
+               {activeTab !== 'config' && (
+                  <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }} onClick={handleNewRecord}>
+                     <PlusCircle size={18} /> Nuevo Registro
+                  </button>
+               )}
             </div>
       </div>
 
@@ -513,7 +520,7 @@ export default function ManagementPage() {
                    { id: 'lots', label: 'Sedes', icon: <MapPin size={18} /> },
                    { id: 'zones', label: 'Zonas', icon: <Layers size={18} /> },
                    { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> },
-                   { id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> },
+                   ...(canManage ? [{ id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> } as const] : []),
                    { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
                 ] as const
              ).map(tab => (
@@ -661,7 +668,21 @@ export default function ManagementPage() {
                          </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                         <button className="white-card" style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Gestionar</button>
+                                     <button
+                                        className="white-card"
+                                        style={{
+                                           padding: '8px 16px',
+                                           fontSize: '12px',
+                                           fontWeight: 800,
+                                           border: 'none',
+                                           cursor: canManage ? 'pointer' : 'not-allowed',
+                                           opacity: canManage ? 1 : 0.6,
+                                        }}
+                                        disabled={!canManage}
+                                        onClick={() => router.push(`/dashboard/subscriptions?edit=${encodeURIComponent(sub.id)}&q=${encodeURIComponent(sub.vehicle.plate)}`)}
+                                     >
+                                        Gestionar
+                                     </button>
                       </td>
                     </tr>
                   ))}
@@ -703,15 +724,15 @@ export default function ManagementPage() {
                          <input type="checkbox" checked={lots.length > 1} readOnly />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <span style={{ fontSize: '14px', fontWeight: 700 }}>2FA Obligatorio</span>
-                         <input type="checkbox" />
+                         <span style={{ fontSize: '14px', fontWeight: 700 }}>2FA</span>
+                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Se gestiona desde Usuarios</span>
                       </div>
                   </div>
                </div>
                <div className="white-card" style={{ padding: '32px', background: 'var(--text-primary)', color: 'white' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px', color: 'var(--accent-gold)' }}>Mantenimiento</h4>
                   <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '24px' }}>Realice copias de seguridad de la base de datos o restaure el sistema a un punto anterior.</p>
-                  <button className="btn-primary" style={{ width: '100%', border: 'none' }}>Backup Cloud</button>
+                  <div style={{ fontSize: '12px', fontWeight: 800, opacity: 0.85 }}>Backups automatizados: no configurado en esta versión.</div>
                </div>
             </div>
           )}

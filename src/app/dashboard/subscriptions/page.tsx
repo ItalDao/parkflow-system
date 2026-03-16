@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Users, 
   Calendar, 
@@ -67,9 +68,12 @@ function effectiveStatus(s: SubscriptionData): SubscriptionData['status'] {
 }
 
 export default function SubscriptionsPage() {
+   const searchParams = useSearchParams();
    const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([]);
   const [loading, setLoading] = useState(true);
    const [query, setQuery] = useState('');
+
+   const [appliedParams, setAppliedParams] = useState(false);
 
    const [role, setRole] = useState<string>('OPERATOR');
    const canManage = role === 'SUPER_ADMIN' || role === 'ADMIN';
@@ -113,6 +117,32 @@ export default function SubscriptionsPage() {
       fetchData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
    }, []);
+
+   useEffect(() => {
+      if (appliedParams) return;
+      if (loading) return;
+
+      const q = (searchParams.get('q') || '').trim();
+      if (q) setQuery(q);
+
+      if (canManage && searchParams.get('new') === '1') {
+         openCreate();
+         setAppliedParams(true);
+         return;
+      }
+
+      const editId = (searchParams.get('edit') || '').trim();
+      if (canManage && editId) {
+         const found = subscriptions.find((s) => s.id === editId);
+         if (found) {
+            openRenew(found);
+            setAppliedParams(true);
+            return;
+         }
+      }
+
+      setAppliedParams(true);
+   }, [appliedParams, loading, searchParams, subscriptions, canManage]);
 
    const filtered = useMemo(() => {
       const q = query.trim().toLowerCase();
