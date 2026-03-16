@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
-import { Prisma, Role, TicketStatus } from '@prisma/client';
+import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 function getUserFromRequest(request: NextRequest) {
@@ -441,13 +441,22 @@ export async function GET(request: NextRequest) {
 
     // Shifts
     if (resource === 'shifts') {
+      const takeParam = searchParams.get('take');
+      const take = (() => {
+        if (!takeParam) return 20;
+        const parsed = Number.parseInt(takeParam, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) return 20;
+        return Math.min(parsed, 200);
+      })();
+
       const shifts = await prisma.shift.findMany({
+        where: parkingLotId ? { parkingLotId } : undefined,
         include: {
           operator: { select: { firstName: true, lastName: true } },
           _count: { select: { payments: true } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take,
       });
       return NextResponse.json(shifts);
     }
@@ -461,15 +470,105 @@ export async function GET(request: NextRequest) {
     }
 
     if (resource === 'shifts-history') {
+      const takeParam = searchParams.get('take');
+      const take = (() => {
+        if (!takeParam) return 10;
+        const parsed = Number.parseInt(takeParam, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+        return Math.min(parsed, 200);
+      })();
+
+      const whereClause: Prisma.ShiftWhereInput = {};
+      if (parkingLotId) whereClause.parkingLotId = parkingLotId;
+      if (user.role === 'OPERATOR') whereClause.operatorId = user.userId;
+
       const shifts = await prisma.shift.findMany({
-        where: user.role === 'OPERATOR' ? { operatorId: user.userId } : {},
+        where: whereClause,
         include: {
           operator: { select: { firstName: true, lastName: true } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 10,
+        take,
       });
       return NextResponse.json(shifts);
+    }
+
+    // Shift report (details + payments breakdown)
+    if (resource === 'shift-details') {
+      const shiftId = searchParams.get('shiftId');
+      if (!shiftId) return NextResponse.json({ error: 'shiftId requerido' }, { status: 400 });
+
+      const shift = await prisma.shift.findUnique({
+        where: { id: shiftId },
+        include: {
+          operator: { select: { firstName: true, lastName: true, email: true } },
+          parkingLot: { select: { id: true, name: true, city: true, address: true } },
+          payments: {
+            include: {
+              ticket: { include: { vehicle: true } },
+              operator: { select: { firstName: true, lastName: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+      });
+
+      if (!shift) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 });
+      if (user.role === 'OPERATOR' && shift.operatorId !== user.userId) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      if (parkingLotId && shift.parkingLotId !== parkingLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      const byMethod: Record<string, { count: number; total: number }> = {};
+      for (const m of Object.values(PaymentMethod)) byMethod[m] = { count: 0, total: 0 };
+      for (const p of shift.payments) {
+        const key = p.method;
+        if (!byMethod[key]) byMethod[key] = { count: 0, total: 0 };
+        byMethod[key].count += 1;
+        byMethod[key].total += p.amount;
+      }
+
+      return NextResponse.json({
+        shift: {
+          id: shift.id,
+          status: shift.status,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          initialCash: shift.initialCash,
+          totalCash: shift.totalCash,
+          totalCard: shift.totalCard,
+          totalDigital: shift.totalDigital,
+          expectedTotal: shift.expectedTotal,
+          actualTotal: shift.actualTotal,
+          difference: shift.difference,
+          vehiclesServed: shift.vehiclesServed,
+          notes: shift.notes,
+          operatorId: shift.operatorId,
+          operator: shift.operator,
+          parkingLotId: shift.parkingLotId,
+          parkingLot: shift.parkingLot,
+          paymentsCount: shift.payments.length,
+        },
+        breakdown: byMethod,
+        payments: shift.payments.map((p) => ({
+          id: p.id,
+          createdAt: p.createdAt,
+          amount: p.amount,
+          method: p.method,
+          status: p.status,
+          invoiceNumber: p.invoiceNumber,
+          cashReceived: p.cashReceived,
+          changeGiven: p.changeGiven,
+          ticket: {
+            id: p.ticketId,
+            ticketCode: p.ticket.ticketCode,
+            vehicle: { plate: p.ticket.vehicle.plate, type: p.ticket.vehicle.type },
+          },
+          operator: p.operator,
+        })),
+      });
     }
 
     // Payments

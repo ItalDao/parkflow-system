@@ -9,16 +9,163 @@ import {
   CreditCard, 
   Activity, 
   AlertCircle,
-  MoreHorizontal,
-  ChevronRight,
-  Printer,
+   Printer,
   FileText
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
+type PaymentMethod = 'CASH' | 'CARD' | 'DIGITAL_WALLET' | 'PREPAID' | 'MONTHLY';
+
+type ShiftSummary = {
+   id: string;
+   status: 'OPEN' | 'CLOSED';
+   startTime: string;
+   endTime?: string | null;
+   initialCash: number;
+   totalCash: number;
+   totalCard: number;
+   totalDigital: number;
+   expectedTotal: number;
+   actualTotal?: number | null;
+   difference?: number | null;
+   vehiclesServed: number;
+   notes?: string | null;
+   operatorId: string;
+   operator: { firstName: string; lastName: string; email?: string };
+};
+
+type ShiftDetails = {
+   shift: ShiftSummary & {
+      parkingLotId: string;
+      parkingLot?: { id: string; name: string; city?: string | null; address?: string | null };
+      paymentsCount: number;
+   };
+   breakdown: Record<string, { count: number; total: number }>;
+   payments: Array<{
+      id: string;
+      createdAt: string;
+      amount: number;
+      method: PaymentMethod;
+      status: string;
+      invoiceNumber?: string | null;
+      cashReceived?: number | null;
+      changeGiven?: number | null;
+      ticket: { id: string; ticketCode: string; vehicle: { plate: string; type: string } };
+      operator?: { firstName: string; lastName: string } | null;
+   }>;
+};
+
+function getAuthHeaders() {
+   return { Authorization: `Bearer ${localStorage.getItem('accessToken')}`, 'Content-Type': 'application/json' };
+}
+
+function buildShiftPrintableHtml(details: ShiftDetails) {
+   const safe = (s: unknown) => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+   const { shift, breakdown } = details;
+   const lotName = shift.parkingLot?.name || 'Sede';
+
+   const methods: Array<{ key: PaymentMethod; label: string }> = [
+      { key: 'CASH', label: 'Efectivo' },
+      { key: 'CARD', label: 'Tarjeta' },
+      { key: 'DIGITAL_WALLET', label: 'Billetera Digital' },
+      { key: 'PREPAID', label: 'Prepago' },
+      { key: 'MONTHLY', label: 'Mensualidad' },
+   ];
+
+   const breakdownRows = methods
+      .map((m) => {
+         const b = breakdown[m.key] || { count: 0, total: 0 };
+         return `<tr><td>${safe(m.label)}</td><td style="text-align:right;">${safe(b.count)}</td><td style="text-align:right; font-weight:900;">${safe(formatCurrency(b.total || 0))}</td></tr>`;
+      })
+      .join('');
+
+   return `<!doctype html>
+   <html lang="es">
+      <head>
+         <meta charset="utf-8" />
+         <meta name="viewport" content="width=device-width, initial-scale=1" />
+         <title>Reporte de Turno</title>
+         <style>
+            body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; }
+            .card { border: 2px solid #111827; border-radius: 16px; padding: 18px; max-width: 760px; margin: 0 auto; }
+            .muted { color: #6b7280; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+            .title { font-size: 22px; font-weight: 900; margin: 0; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+            .hr { height: 1px; background: #e5e7eb; margin: 14px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+            th { text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+            @media print { body { padding: 0; } .card { border: none; } }
+         </style>
+      </head>
+      <body>
+         <div class="card">
+            <div style="display:flex; justify-content:space-between; gap:16px; align-items:baseline;">
+               <div>
+                  <div class="muted">${safe(lotName)}</div>
+                  <h1 class="title">Reporte de Turno</h1>
+               </div>
+               <div style="text-align:right;">
+                  <div class="muted">Turno</div>
+                  <div style="font-weight:900; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">${safe(shift.id)}</div>
+               </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="grid">
+               <div>
+                  <div class="muted">Operador</div>
+                  <div style="font-weight:900;">${safe(`${shift.operator.firstName} ${shift.operator.lastName}`)}</div>
+                  <div style="font-weight:700; color:#6b7280; font-size:12px;">${safe(shift.operator.email || '')}</div>
+               </div>
+               <div style="text-align:right;">
+                  <div class="muted">Periodo</div>
+                  <div style="font-weight:900;">${safe(formatDate(shift.startTime))}</div>
+                  <div style="font-weight:900;">${safe(shift.endTime ? formatDate(shift.endTime) : 'Activo')}</div>
+               </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="grid">
+               <div>
+                  <div class="muted">Total Esperado</div>
+                  <div style="font-weight:900; font-size:18px;">${safe(formatCurrency(shift.expectedTotal || 0))}</div>
+               </div>
+               <div style="text-align:right;">
+                  <div class="muted">Total Real</div>
+                  <div style="font-weight:900; font-size:18px;">${safe(formatCurrency(shift.actualTotal || 0))}</div>
+               </div>
+            </div>
+
+            <div class="grid" style="margin-top: 10px;">
+               <div>
+                  <div class="muted">Base de Caja</div>
+                  <div style="font-weight:900;">${safe(formatCurrency(shift.initialCash || 0))}</div>
+               </div>
+               <div style="text-align:right;">
+                  <div class="muted">Diferencia</div>
+                  <div style="font-weight:900;">${safe(formatCurrency(shift.difference || 0))}</div>
+               </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="muted" style="margin-bottom:8px;">Desglose por Método</div>
+            <table>
+               <thead><tr><th>Método</th><th style="text-align:right;">Transacciones</th><th style="text-align:right;">Total</th></tr></thead>
+               <tbody>${breakdownRows}</tbody>
+            </table>
+         </div>
+         <script>window.focus(); window.print();</script>
+      </body>
+   </html>`;
+}
+
 export default function ShiftsPage() {
-  const [activeShift, setActiveShift] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+   const [activeShift, setActiveShift] = useState<ShiftSummary | null>(null);
+   const [history, setHistory] = useState<ShiftSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialCash, setInitialCash] = useState('');
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -27,19 +174,26 @@ export default function ShiftsPage() {
    const [closeNotes, setCloseNotes] = useState('');
    const [closing, setClosing] = useState(false);
 
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [historyExpanded, setHistoryExpanded] = useState(false);
+
+    const [reportLoading, setReportLoading] = useState(false);
+    const [report, setReport] = useState<ShiftDetails | null>(null);
+    const [showReportModal, setShowReportModal] = useState(false);
+
   const fetchData = useCallback(async () => {
     try {
-      const headers = { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
+         const headers = { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
       const [currRes, histRes] = await Promise.all([
         fetch('/api/dashboard?resource=current-shift', { headers }),
-        fetch('/api/dashboard?resource=shifts-history', { headers })
+            fetch(`/api/dashboard?resource=shifts-history&take=${historyExpanded ? 50 : 10}`, { headers })
       ]);
       
       if (currRes.ok) setActiveShift(await currRes.json());
       if (histRes.ok) setHistory(await histRes.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, []);
+   }, [historyExpanded]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -61,6 +215,28 @@ export default function ShiftsPage() {
       }
     } catch (err) { console.error(err); }
   };
+
+    const fetchShiftReport = async (shiftId: string) => {
+       setReportLoading(true);
+       try {
+          const res = await fetch(`/api/dashboard?resource=shift-details&shiftId=${encodeURIComponent(shiftId)}`, {
+             headers: getAuthHeaders(),
+          });
+          if (!res.ok) {
+             const data = await res.json().catch(() => ({}));
+             alert((data as { error?: string }).error || 'No se pudo cargar el reporte');
+             return;
+          }
+          const data = (await res.json()) as ShiftDetails;
+          setReport(data);
+          setShowReportModal(true);
+       } catch (err) {
+          console.error(err);
+          alert('Error al cargar reporte');
+       } finally {
+          setReportLoading(false);
+       }
+    };
 
    const handleCloseShift = () => {
       if (!activeShift) return;
@@ -84,8 +260,12 @@ export default function ShiftsPage() {
             body: JSON.stringify({ resource: 'close-shift', shiftId: activeShift.id, actualTotal: parsed, notes: closeNotes }),
          });
          if (res.ok) {
+            const closed = (await res.json().catch(() => null)) as ShiftSummary | null;
             setShowCloseModal(false);
-            fetchData();
+            await fetchData();
+            if (closed?.id) {
+              await fetchShiftReport(closed.id);
+            }
          } else {
             const data = await res.json().catch(() => ({}));
             alert(data.error || 'No se pudo cerrar el turno');
@@ -95,6 +275,36 @@ export default function ShiftsPage() {
          alert('Error al cerrar el turno');
       } finally {
          setClosing(false);
+      }
+   };
+
+   const handlePrintReport = () => {
+      if (!report) return;
+      const html = buildShiftPrintableHtml(report);
+      const win = window.open('', '_blank', 'noopener,noreferrer');
+      if (!win) {
+         alert('No se pudo abrir la ventana de impresión (bloqueada)');
+         return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+   };
+
+   const methodLabel = (method: PaymentMethod) => {
+      switch (method) {
+         case 'CASH':
+            return 'Efectivo';
+         case 'CARD':
+            return 'Tarjeta';
+         case 'DIGITAL_WALLET':
+            return 'Billetera';
+         case 'PREPAID':
+            return 'Prepago';
+         case 'MONTHLY':
+            return 'Mensualidad';
+         default:
+            return method;
       }
    };
 
@@ -158,7 +368,15 @@ export default function ShiftsPage() {
             <div className="glass-card" style={{ padding: '40px' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: 900 }}>Historial de Turnos</h3>
-                  <button style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', fontWeight: 800, cursor: 'pointer', fontSize: '13px' }}>Ver Todo</button>
+                           <button
+                              style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', fontWeight: 800, cursor: 'pointer', fontSize: '13px' }}
+                              onClick={() => {
+                                 setHistoryExpanded(true);
+                                 setShowHistoryModal(true);
+                              }}
+                           >
+                              Ver Todo
+                           </button>
                </div>
                <div style={{ overflowX: 'auto' }}>
                   <table className="data-table" style={{ width: '100%' }}>
@@ -173,7 +391,7 @@ export default function ShiftsPage() {
                         </tr>
                      </thead>
                      <tbody>
-                        {history.map(shift => (
+                                    {history.map(shift => (
                           <tr key={shift.id}>
                              <td style={{ paddingTop: '20px', paddingBottom: '20px' }}>
                                 <div style={{ fontWeight: 800 }}>{shift.operator.firstName} {shift.operator.lastName}</div>
@@ -183,7 +401,15 @@ export default function ShiftsPage() {
                              <td style={{ fontWeight: 900 }}>{formatCurrency(shift.actualTotal || shift.expectedTotal)}</td>
                              <td style={{ fontWeight: 800 }}>{shift.vehiclesServed}</td>
                              <td style={{ textAlign: 'right' }}>
-                                <button className="white-card" style={{ padding: '8px 16px', border: 'none', cursor: 'pointer' }}><FileText size={16} /></button>
+                                <button
+                                  className="white-card"
+                                  style={{ padding: '8px 16px', border: 'none', cursor: 'pointer', opacity: reportLoading ? 0.7 : 1 }}
+                                  onClick={() => void fetchShiftReport(shift.id)}
+                                  disabled={reportLoading}
+                                  title="Ver reporte"
+                                >
+                                  <FileText size={16} />
+                                </button>
                              </td>
                           </tr>
                         ))}
@@ -306,6 +532,197 @@ export default function ShiftsPage() {
                   >
                      {closing ? 'Cerrando…' : 'Cerrar Turno y Generar Reporte'}
                   </button>
+               </div>
+            </div>
+         )}
+
+         {/* History Modal */}
+         {showHistoryModal && (
+            <div
+               className="modal-overlay"
+               onClick={() => {
+                  setShowHistoryModal(false);
+                  setHistoryExpanded(false);
+               }}
+            >
+               <div
+                  className="modal-content-premium animate-premium"
+                  style={{ maxWidth: '980px' }}
+                  onClick={(e) => e.stopPropagation()}
+               >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <History size={18} />
+                        <h3 style={{ fontSize: '20px', fontWeight: 900 }}>Historial Completo</h3>
+                     </div>
+                     <button
+                        className="white-card"
+                        style={{ padding: '10px 14px', border: 'none', cursor: 'pointer', fontWeight: 900 }}
+                        onClick={() => {
+                           setShowHistoryModal(false);
+                           setHistoryExpanded(false);
+                        }}
+                     >
+                        Cerrar
+                     </button>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                     <table className="data-table" style={{ width: '100%' }}>
+                        <thead>
+                           <tr>
+                              <th>Operador</th>
+                              <th>Apertura</th>
+                              <th>Cierre</th>
+                              <th>Esperado</th>
+                              <th>Real</th>
+                              <th>Diferencia</th>
+                              <th>Vehículos</th>
+                              <th style={{ textAlign: 'right' }}>Acciones</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {history.map((shift) => (
+                              <tr key={shift.id}>
+                                 <td style={{ paddingTop: '18px', paddingBottom: '18px' }}>
+                                    <div style={{ fontWeight: 900 }}>{shift.operator.firstName} {shift.operator.lastName}</div>
+                                 </td>
+                                 <td style={{ fontSize: '13px', fontWeight: 700 }}>{formatDate(shift.startTime)}</td>
+                                 <td style={{ fontSize: '13px', fontWeight: 700 }}>{shift.endTime ? formatDate(shift.endTime) : 'Activo'}</td>
+                                 <td style={{ fontWeight: 900 }}>{formatCurrency(shift.expectedTotal || 0)}</td>
+                                 <td style={{ fontWeight: 900 }}>{formatCurrency(shift.actualTotal || 0)}</td>
+                                 <td style={{ fontWeight: 900 }}>{formatCurrency(shift.difference || 0)}</td>
+                                 <td style={{ fontWeight: 900 }}>{shift.vehiclesServed}</td>
+                                 <td style={{ textAlign: 'right' }}>
+                                    <button
+                                       className="white-card"
+                                       style={{ padding: '8px 16px', border: 'none', cursor: 'pointer' }}
+                                       onClick={() => void fetchShiftReport(shift.id)}
+                                       title="Ver reporte"
+                                    >
+                                       <FileText size={16} />
+                                    </button>
+                                 </td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                  </div>
+               </div>
+            </div>
+         )}
+
+         {/* Report Modal */}
+         {showReportModal && report && (
+            <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
+               <div
+                  className="modal-content-premium animate-premium"
+                  style={{ maxWidth: '980px' }}
+                  onClick={(e) => e.stopPropagation()}
+               >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
+                     <div>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                           {report.shift.parkingLot?.name || 'Sede'}
+                        </div>
+                        <h3 style={{ fontSize: '22px', fontWeight: 900 }}>Reporte de Turno</h3>
+                     </div>
+                     <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                           className="white-card"
+                           style={{ padding: '10px 14px', border: 'none', cursor: 'pointer', fontWeight: 900 }}
+                           onClick={handlePrintReport}
+                        >
+                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                              <Printer size={16} /> Imprimir
+                           </span>
+                        </button>
+                        <button
+                           className="white-card"
+                           style={{ padding: '10px 14px', border: 'none', cursor: 'pointer', fontWeight: 900 }}
+                           onClick={() => setShowReportModal(false)}
+                        >
+                           Cerrar
+                        </button>
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '18px' }}>
+                     <div className="white-card" style={{ padding: '18px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '8px' }}>TOTAL ESPERADO</div>
+                        <div style={{ fontSize: '20px', fontWeight: 900 }}>{formatCurrency(report.shift.expectedTotal || 0)}</div>
+                     </div>
+                     <div className="white-card" style={{ padding: '18px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '8px' }}>TOTAL REAL</div>
+                        <div style={{ fontSize: '20px', fontWeight: 900 }}>{formatCurrency(report.shift.actualTotal || 0)}</div>
+                     </div>
+                     <div className="white-card" style={{ padding: '18px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '8px' }}>DIFERENCIA</div>
+                        <div style={{ fontSize: '20px', fontWeight: 900 }}>{formatCurrency(report.shift.difference || 0)}</div>
+                     </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '18px' }}>
+                     <div className="white-card" style={{ padding: '18px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '8px' }}>OPERADOR</div>
+                        <div style={{ fontSize: '14px', fontWeight: 900 }}>{report.shift.operator.firstName} {report.shift.operator.lastName}</div>
+                        {report.shift.operator.email && (
+                           <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{report.shift.operator.email}</div>
+                        )}
+                     </div>
+                     <div className="white-card" style={{ padding: '18px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '8px' }}>PERIODO</div>
+                        <div style={{ fontSize: '13px', fontWeight: 900 }}>{formatDate(report.shift.startTime)}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 900 }}>{report.shift.endTime ? formatDate(report.shift.endTime) : 'Activo'}</div>
+                     </div>
+                  </div>
+
+                  <div className="white-card" style={{ padding: '18px', marginBottom: '18px' }}>
+                     <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '10px' }}>DESGLOSE POR MÉTODO</div>
+                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                        {(['CASH', 'CARD', 'DIGITAL_WALLET', 'PREPAID', 'MONTHLY'] as PaymentMethod[]).map((m) => {
+                           const b = report.breakdown[m] || { count: 0, total: 0 };
+                           return (
+                              <div key={m} style={{ padding: '12px 14px', borderRadius: '14px', background: 'rgba(17, 24, 39, 0.04)' }}>
+                                 <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '6px' }}>{methodLabel(m)}</div>
+                                 <div style={{ fontSize: '13px', fontWeight: 900 }}>{formatCurrency(b.total || 0)}</div>
+                                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{b.count} pagos</div>
+                              </div>
+                           );
+                        })}
+                     </div>
+                  </div>
+
+                  <div className="white-card" style={{ padding: '18px' }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>PAGOS ({report.shift.paymentsCount})</div>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>Últimos {report.payments.length}</div>
+                     </div>
+                     <div style={{ overflowX: 'auto' }}>
+                        <table className="data-table" style={{ width: '100%' }}>
+                           <thead>
+                              <tr>
+                                 <th>Fecha</th>
+                                 <th>Ticket</th>
+                                 <th>Placa</th>
+                                 <th>Método</th>
+                                 <th style={{ textAlign: 'right' }}>Monto</th>
+                              </tr>
+                           </thead>
+                           <tbody>
+                              {report.payments.map((p) => (
+                                 <tr key={p.id}>
+                                    <td style={{ fontSize: '13px', fontWeight: 800 }}>{formatDate(p.createdAt)}</td>
+                                    <td style={{ fontWeight: 900, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{p.ticket.ticketCode}</td>
+                                    <td style={{ fontWeight: 900 }}>{p.ticket.vehicle.plate}</td>
+                                    <td style={{ fontWeight: 900 }}>{methodLabel(p.method)}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: 900 }}>{formatCurrency(p.amount)}</td>
+                                 </tr>
+                              ))}
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
                </div>
             </div>
          )}
