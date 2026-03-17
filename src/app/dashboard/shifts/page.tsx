@@ -242,7 +242,7 @@ export default function ShiftsPage() {
           setShowReportModal(true);
        } catch (err) {
           console.error(err);
-          toast.error('Error al cargar reporte');
+         toast.error('No se pudo cargar el reporte');
        } finally {
           setReportLoading(false);
        }
@@ -282,7 +282,7 @@ export default function ShiftsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error al cerrar el turno');
+         toast.error('No se pudo cerrar el turno');
       } finally {
          setClosing(false);
       }

@@ -171,7 +171,7 @@ export default function UsersPage() {
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo eliminar');
+         toast.error('No se pudo crear el usuario');
       }
   };
 
@@ -196,7 +196,10 @@ export default function UsersPage() {
                 const data = await res.json().catch(() => ({}));
                 toast.error((data as { error?: string }).error || 'No se pudo eliminar');
              }
-    } catch (err) { console.error(err); }
+      } catch (err) {
+         console.error(err);
+         toast.error('No se pudo eliminar');
+      }
   };
 
    const filtered = useMemo(() => users.filter(u => 

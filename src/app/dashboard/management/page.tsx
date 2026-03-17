@@ -304,7 +304,7 @@ export default function ManagementPage() {
          await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         toast.error('Error creando zona');
+         toast.error('No se pudo crear la zona');
       }
    };
 
@@ -349,7 +349,7 @@ export default function ManagementPage() {
          await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         toast.error('Error creando tarifa');
+         toast.error('No se pudo crear la tarifa');
       }
    };
 
@@ -391,7 +391,7 @@ export default function ManagementPage() {
          if (selectedLotId) await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         toast.error('Error actualizando tarifa');
+         toast.error('No se pudo actualizar la tarifa');
       }
    };
 
@@ -428,7 +428,7 @@ export default function ManagementPage() {
          if (selectedLotId) await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
-         toast.error('Error actualizando tarifa');
+         toast.error('No se pudo actualizar la tarifa');
       }
    };
 
@@ -471,7 +471,7 @@ export default function ManagementPage() {
          toast.success('Configuración guardada');
       } catch (err) {
          console.error(err);
-         toast.error('Error guardando configuración');
+         toast.error('No se pudo guardar la configuración');
       }
    };
 
@@ -530,7 +530,7 @@ export default function ManagementPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error creando sede');
+         toast.error('No se pudo crear la sede');
       }
    };
 

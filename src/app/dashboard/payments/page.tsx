@@ -78,7 +78,7 @@ export default function PaymentsPage() {
       const role = decoded.role || 'OPERATOR';
       const canView = role === 'SUPER_ADMIN' || role === 'ADMIN';
       if (!canView) {
-        toast.error('Acceso denegado: pagos requiere permisos de Admin');
+        toast.error('Acceso denegado: no tienes permisos para ver pagos');
         router.replace('/dashboard');
         setLoading(false);
         return;
@@ -98,7 +98,7 @@ export default function PaymentsPage() {
         }
 
         if (res.status === 403 || statsRes.status === 403) {
-          toast.error('No tienes permisos para ver pagos');
+          toast.error('Acceso denegado: no tienes permisos para ver pagos');
           router.replace('/dashboard');
           return;
         }

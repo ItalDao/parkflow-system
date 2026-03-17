@@ -167,7 +167,7 @@ export default function VehiclesPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('Error al eliminar');
+         toast.error('No se pudo eliminar');
       }
    };
 

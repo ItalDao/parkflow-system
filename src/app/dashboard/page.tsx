@@ -85,7 +85,7 @@ export default function DashboardPage() {
         toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
       }
     } catch {
-      toast.error('Error al registrar');
+      toast.error('No se pudo registrar la entrada');
     }
     finally { setProcessing(false); }
   };
@@ -106,7 +106,7 @@ export default function DashboardPage() {
         toast.error((d as { error?: string }).error || 'No se pudo procesar la salida');
       }
     } catch {
-      toast.error('Error al procesar salida');
+      toast.error('No se pudo procesar la salida');
     }
     finally { setProcessing(false); }
   };

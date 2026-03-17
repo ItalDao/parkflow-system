@@ -168,7 +168,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error guardando la sede');
+         toast.error('No se pudo guardar la sede');
       } finally {
          setSavingLot(false);
       }
@@ -189,7 +189,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error actualizando la tarifa');
+         toast.error('No se pudo actualizar la tarifa');
       }
     finally { setSaving(null); }
   };
@@ -211,7 +211,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error creando la tarifa');
+         toast.error('No se pudo crear la tarifa');
       }
   };
 
