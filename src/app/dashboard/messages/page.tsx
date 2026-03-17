@@ -120,28 +120,45 @@ export default function MessagesPage() {
    const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('accessToken')}` });
 
    const loadLots = async (): Promise<ParkingLotOption[]> => {
-      const res = await fetch('/api/dashboard?resource=lots', { headers: authHeaders() });
-      if (!res.ok) return [];
-      const data: unknown = await res.json();
-      return parseLots(data);
+         try {
+            const res = await fetch('/api/dashboard?resource=lots', { headers: authHeaders() });
+            if (!res.ok) {
+               toast.error('Error de conexión');
+               return [];
+            }
+            const data: unknown = await res.json();
+            return parseLots(data);
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
+            return [];
+         }
    };
 
    const loadPeople = async (lotId?: string) => {
-      const qs = lotId ? `&parkingLotId=${encodeURIComponent(lotId)}` : '';
-      const res = await fetch(`/api/dashboard?resource=people${qs}`, { headers: authHeaders() });
-      if (!res.ok) return;
-      const data: unknown = await res.json();
-      if (!Array.isArray(data)) return;
-      const parsed: Person[] = [];
-      for (const item of data) {
-         if (!item || typeof item !== 'object') continue;
-         const rec = item as Record<string, unknown>;
-         if (typeof rec.id !== 'string') continue;
-         if (typeof rec.firstName !== 'string' || typeof rec.lastName !== 'string') continue;
-         if (typeof rec.role !== 'string' || typeof rec.email !== 'string') continue;
-         parsed.push({ id: rec.id, firstName: rec.firstName, lastName: rec.lastName, role: rec.role, email: rec.email });
-      }
-      setPeople(parsed);
+         try {
+            const qs = lotId ? `&parkingLotId=${encodeURIComponent(lotId)}` : '';
+            const res = await fetch(`/api/dashboard?resource=people${qs}`, { headers: authHeaders() });
+            if (!res.ok) {
+               toast.error('Error de conexión');
+               return;
+            }
+            const data: unknown = await res.json();
+            if (!Array.isArray(data)) return;
+            const parsed: Person[] = [];
+            for (const item of data) {
+               if (!item || typeof item !== 'object') continue;
+               const rec = item as Record<string, unknown>;
+               if (typeof rec.id !== 'string') continue;
+               if (typeof rec.firstName !== 'string' || typeof rec.lastName !== 'string') continue;
+               if (typeof rec.role !== 'string' || typeof rec.email !== 'string') continue;
+               parsed.push({ id: rec.id, firstName: rec.firstName, lastName: rec.lastName, role: rec.role, email: rec.email });
+            }
+            setPeople(parsed);
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
+         }
    };
 
    const loadConversations = async (lotId?: string) => {
@@ -150,6 +167,7 @@ export default function MessagesPage() {
          const qs = lotId ? `&parkingLotId=${encodeURIComponent(lotId)}` : '';
          const res = await fetch(`/api/dashboard?resource=conversations${qs}`, { headers: authHeaders() });
          if (!res.ok) {
+               toast.error('Error de conexión');
             setConversations([]);
             return;
          }
@@ -158,6 +176,9 @@ export default function MessagesPage() {
          if (!activeConversationId && Array.isArray(data) && data[0]?.id) {
             setActiveConversationId(data[0].id);
          }
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
       } finally {
          setLoadingSidebar(false);
       }
@@ -181,6 +202,7 @@ export default function MessagesPage() {
          const qsLot = lotId ? `&parkingLotId=${encodeURIComponent(lotId)}` : '';
          const res = await fetch(`/api/dashboard?resource=messages&conversationId=${encodeURIComponent(conversationId)}${qsLot}`, { headers: authHeaders() });
          if (!res.ok) {
+               toast.error('Error de conexión');
             setMessages([]);
             return;
          }
@@ -189,6 +211,9 @@ export default function MessagesPage() {
          setMessages(Array.isArray(msgList) ? (msgList as MessageData[]) : []);
          void markConversationRead(conversationId, lotId);
          setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, unread: 0 } : c));
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
       } finally {
          setLoadingMessages(false);
       }
@@ -243,53 +268,63 @@ export default function MessagesPage() {
 
    const handleCreateConversation = async () => {
       const participantIds = createParticipantIds.filter(id => id !== currentUserId);
-      const res = await fetch('/api/dashboard', {
-         method: 'POST',
-         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-            resource: 'conversations',
-            parkingLotId: canManageAll ? selectedLotId : undefined,
-            data: { title: createTitle, participantIds },
-         }),
-      });
-      if (!res.ok) {
-         const data = await res.json().catch(() => ({}));
-         toast.error((data as { error?: string }).error || 'No se pudo crear la conversación');
-         return;
-      }
-      const convo = (await res.json()) as { id?: string };
-      setShowCreate(false);
-      setCreateTitle('');
-      setCreateParticipantIds([]);
-      await loadConversations(canManageAll ? selectedLotId : undefined);
-      if (convo.id) setActiveConversationId(convo.id);
+         try {
+            const res = await fetch('/api/dashboard', {
+               method: 'POST',
+               headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  resource: 'conversations',
+                  parkingLotId: canManageAll ? selectedLotId : undefined,
+                  data: { title: createTitle, participantIds },
+               }),
+            });
+            if (!res.ok) {
+               const data = await res.json().catch(() => ({}));
+               toast.error((data as { error?: string }).error || 'No se pudo crear la conversación');
+               return;
+            }
+            const convo = (await res.json()) as { id?: string };
+            setShowCreate(false);
+            setCreateTitle('');
+            setCreateParticipantIds([]);
+            await loadConversations(canManageAll ? selectedLotId : undefined);
+            if (convo.id) setActiveConversationId(convo.id);
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
+         }
    };
 
    const handleSend = async () => {
       const text = composer.trim();
       if (!text || !activeConversationId) return;
       setComposer('');
+         try {
+            const res = await fetch('/api/dashboard', {
+               method: 'POST',
+               headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  resource: 'messages',
+                  parkingLotId: canManageAll ? selectedLotId : undefined,
+                  data: { conversationId: activeConversationId, body: text },
+               }),
+            });
 
-      const res = await fetch('/api/dashboard', {
-         method: 'POST',
-         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-            resource: 'messages',
-            parkingLotId: canManageAll ? selectedLotId : undefined,
-            data: { conversationId: activeConversationId, body: text },
-         }),
-      });
+            if (!res.ok) {
+               const data = await res.json().catch(() => ({}));
+               toast.error((data as { error?: string }).error || 'No se pudo enviar el mensaje');
+               setComposer(text);
+               return;
+            }
 
-      if (!res.ok) {
-         const data = await res.json().catch(() => ({}));
-         toast.error((data as { error?: string }).error || 'No se pudo enviar el mensaje');
-         setComposer(text);
-         return;
-      }
-
-      const created = (await res.json()) as MessageData;
-      setMessages(prev => [...prev, created]);
-      await loadConversations(canManageAll ? selectedLotId : undefined);
+            const created = (await res.json()) as MessageData;
+            setMessages(prev => [...prev, created]);
+            await loadConversations(canManageAll ? selectedLotId : undefined);
+         } catch (err) {
+            console.error(err);
+            toast.error('Error de conexión');
+            setComposer(text);
+         }
    };
 
   return (
