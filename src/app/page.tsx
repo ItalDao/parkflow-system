@@ -170,7 +170,7 @@ export default function LoginPage() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    placeholder="••••••••"
+                    placeholder="********"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => setCapsLockOn(e.getModifierState('CapsLock'))}

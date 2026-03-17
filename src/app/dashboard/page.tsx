@@ -253,7 +253,7 @@ export default function DashboardPage() {
                               <div style={{ fontSize: '15px', fontWeight: 900 }}>#{activeTicket.ticketCode.slice(-6)}</div>
                            </div>
                            <div>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>NÂ° Placa</div>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>N° Placa</div>
                               <div style={{ fontSize: '15px', fontWeight: 900 }}>{activeTicket.vehicle.plate}</div>
                            </div>
                            <div>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                       </>
                     ) : (
                       <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '24px' }}>El espacio estÃ¡ libre para un nuevo vehÃ­culo.</p>
+                         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '24px' }}>El espacio está libre para un nuevo vehículo.</p>
                          <button 
                            onClick={() => setShowEntryModal(true)}
                            className="btn-primary" style={{ padding: '14px 40px', fontWeight: 900 }}>
@@ -300,12 +300,12 @@ export default function DashboardPage() {
            {/* Occupancy Snapshot */}
           <div className="glass-card" style={{ padding: '32px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>OcupaciÃ³n Global</h3>
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Ocupación Global</h3>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="white-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>OcupaciÃ³n</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ocupación</span>
                   <span style={{ fontSize: '20px', fontWeight: 900 }}>{stats?.occupancyRate ?? 0}%</span>
                 </div>
                 <Zap size={20} color="var(--accent-gold)" style={{ opacity: 0.6 }} />
@@ -331,7 +331,7 @@ export default function DashboardPage() {
         {/* Parking Overview Chart */}
         <div className="glass-card" style={{ padding: '40px' }}>
            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Resumen de OcupaciÃ³n</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Resumen de Ocupación</h3>
            </div>
            
            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '100px', marginBottom: '40px' }}>
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '15px', fontWeight: 900 }}>{zoneStats.top.name}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                      Mayor ocupaciÃ³n ({zoneStats.top.occupancy}%) Â· {zoneStats.top.occupied}/{zoneStats.top.total}
+                      Mayor ocupación ({zoneStats.top.occupancy}%) · {zoneStats.top.occupied}/{zoneStats.top.total}
                     </div>
                   </div>
                 </div>
@@ -373,7 +373,7 @@ export default function DashboardPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '15px', fontWeight: 900 }}>{zoneStats.mostAvailable.name}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                      MÃ¡s disponibles ({zoneStats.mostAvailable.available}) Â· {zoneStats.mostAvailable.occupancy}% ocupaciÃ³n
+                      Más disponibles ({zoneStats.mostAvailable.available}) · {zoneStats.mostAvailable.occupancy}% ocupación
                     </div>
                   </div>
                 </div>
@@ -389,7 +389,7 @@ export default function DashboardPage() {
                <div style={{ display: 'flex', gap: '12px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                      <span style={{ fontSize: '18px', fontWeight: 900 }}>{stats?.todayVehicles || 0}</span>
-                     <span style={{ fontSize: '10px', opacity: 0.6, fontWeight: 700 }}>VEHÃCULOS</span>
+                     <span style={{ fontSize: '10px', opacity: 0.6, fontWeight: 700 }}>VEHÍCULOS</span>
                   </div>
                </div>
                <div style={{ padding: '8px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', fontSize: '11px', fontWeight: 800 }}>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
               <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>Nueva Entrada</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
                  <div className="form-group">
-                    <label className="input-label">NÂ° Placa vehicular</label>
+                    <label className="input-label">N° Placa vehicular</label>
                     <input 
                       autoFocus
                       className="white-card" 
@@ -417,14 +417,14 @@ export default function DashboardPage() {
                     />
                  </div>
                  <div className="form-group">
-                    <label className="input-label">Tipo de VehÃ­culo</label>
+                    <label className="input-label">Tipo de Vehículo</label>
                     <select 
                       className="white-card" 
                       style={{ border: 'none', padding: '18px', width: '100%', fontSize: '15px', fontWeight: 800 }}
                       value={entryForm.vehicleType}
                       onChange={e => setEntryForm({ ...entryForm, vehicleType: e.target.value })}
                     >
-                       <option value="CAR">AutomÃ³vil</option>
+                       <option value="CAR">Automóvil</option>
                        <option value="MOTORCYCLE">Motocicleta</option>
                        <option value="VAN">Camioneta / SUV</option>
                     </select>

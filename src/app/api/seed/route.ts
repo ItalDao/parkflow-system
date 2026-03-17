@@ -4,80 +4,45 @@ import { hashPassword } from '@/lib/auth';
 
 export async function POST() {
   try {
-    // Check if we already have a full seed
     const hasParkingLot = await prisma.parkingLot.findFirst();
+    const hashedPassword = await hashPassword('Matias@Admin123');
+
+    const [superAdmin, admin, operator1, operator2, customer1, customer2] = await Promise.all([
+      prisma.user.upsert({
+        where: { email: 'matias.superadmin@acuario.com' },
+        update: { password: hashedPassword, firstName: 'Matias', lastName: 'SuperAdmin', phone: '+57 310 123 4567', role: 'SUPER_ADMIN' },
+        create: { email: 'matias.superadmin@acuario.com', password: hashedPassword, firstName: 'Matias', lastName: 'SuperAdmin', phone: '+57 310 123 4567', role: 'SUPER_ADMIN' },
+      }),
+      prisma.user.upsert({
+        where: { email: 'matias.admin@acuario.com' },
+        update: { password: hashedPassword, firstName: 'Matias', lastName: 'Admin', phone: '+57 320 234 5678', role: 'ADMIN' },
+        create: { email: 'matias.admin@acuario.com', password: hashedPassword, firstName: 'Matias', lastName: 'Admin', phone: '+57 320 234 5678', role: 'ADMIN' },
+      }),
+      prisma.user.upsert({
+        where: { email: 'matias.operator@acuario.com' },
+        update: { password: hashedPassword, firstName: 'Matias', lastName: 'Operador', phone: '+57 300 345 6789', role: 'OPERATOR' },
+        create: { email: 'matias.operator@acuario.com', password: hashedPassword, firstName: 'Matias', lastName: 'Operador', phone: '+57 300 345 6789', role: 'OPERATOR' },
+      }),
+      prisma.user.upsert({
+        where: { email: 'operador2@parkingos.com' },
+        update: { password: hashedPassword, firstName: 'María', lastName: 'González', phone: '+57 311 456 7890', role: 'OPERATOR' },
+        create: { email: 'operador2@parkingos.com', password: hashedPassword, firstName: 'María', lastName: 'González', phone: '+57 311 456 7890', role: 'OPERATOR' },
+      }),
+      prisma.user.upsert({
+        where: { email: 'cliente1@email.com' },
+        update: { password: hashedPassword, firstName: 'Pedro', lastName: 'Sánchez', phone: '+57 315 567 8901', role: 'CUSTOMER' },
+        create: { email: 'cliente1@email.com', password: hashedPassword, firstName: 'Pedro', lastName: 'Sánchez', phone: '+57 315 567 8901', role: 'CUSTOMER' },
+      }),
+      prisma.user.upsert({
+        where: { email: 'cliente2@email.com' },
+        update: { password: hashedPassword, firstName: 'Laura', lastName: 'Ramírez', phone: '+57 318 678 9012', role: 'CUSTOMER' },
+        create: { email: 'cliente2@email.com', password: hashedPassword, firstName: 'Laura', lastName: 'Ramírez', phone: '+57 318 678 9012', role: 'CUSTOMER' },
+      }),
+    ]);
+
     if (hasParkingLot) {
-      return NextResponse.json({ message: 'El sistema ya está inicializado con datos maestros.' });
+      return NextResponse.json({ message: 'Usuarios de prueba actualizados. El sistema ya está inicializado.' });
     }
-
-    const hashedPassword = await hashPassword('Admin123!');
-
-    // Create users
-    const superAdmin = await prisma.user.create({
-      data: {
-        email: 'admin@parkingos.com',
-        password: hashedPassword,
-        firstName: 'Carlos',
-        lastName: 'Rodríguez',
-        phone: '+57 310 123 4567',
-        role: 'SUPER_ADMIN',
-      },
-    });
-
-    const admin = await prisma.user.create({
-      data: {
-        email: 'jefe@parkingos.com',
-        password: hashedPassword,
-        firstName: 'Ana',
-        lastName: 'Martínez',
-        phone: '+57 320 234 5678',
-        role: 'ADMIN',
-      },
-    });
-
-    const operator1 = await prisma.user.create({
-      data: {
-        email: 'operador1@parkingos.com',
-        password: hashedPassword,
-        firstName: 'Juan',
-        lastName: 'López',
-        phone: '+57 300 345 6789',
-        role: 'OPERATOR',
-      },
-    });
-
-    const operator2 = await prisma.user.create({
-      data: {
-        email: 'operador2@parkingos.com',
-        password: hashedPassword,
-        firstName: 'María',
-        lastName: 'González',
-        phone: '+57 311 456 7890',
-        role: 'OPERATOR',
-      },
-    });
-
-    const customer1 = await prisma.user.create({
-      data: {
-        email: 'cliente1@email.com',
-        password: hashedPassword,
-        firstName: 'Pedro',
-        lastName: 'Sánchez',
-        phone: '+57 315 567 8901',
-        role: 'CUSTOMER',
-      },
-    });
-
-    const customer2 = await prisma.user.create({
-      data: {
-        email: 'cliente2@email.com',
-        password: hashedPassword,
-        firstName: 'Laura',
-        lastName: 'Ramírez',
-        phone: '+57 318 678 9012',
-        role: 'CUSTOMER',
-      },
-    });
 
     // Create parking lot
     const parkingLot = await prisma.parkingLot.create({

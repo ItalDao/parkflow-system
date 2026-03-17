@@ -145,7 +145,7 @@ export default function ParkingMapPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '40px' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
                <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Infraestructura de Zonas</h2>
-               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Mapa interactivo de ocupaciÃ³n Â· BogotÃ¡</span>
+               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Mapa interactivo de ocupación · Bogotá</span>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
                <button onClick={fetchZones} className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><RotateCcw size={18} /></button>
@@ -264,7 +264,7 @@ export default function ParkingMapPage() {
                   onClick={handleRegister}
                   disabled={!canEntry && !canExit}
                 >
-                  {canEntry ? 'Registrar Ingreso' : canExit ? 'Procesar Salida' : 'OperaciÃ³n no disponible'}
+                  {canEntry ? 'Registrar Ingreso' : canExit ? 'Procesar Salida' : 'Operación no disponible'}
                 </button>
              </div>
            ) : (
@@ -283,7 +283,7 @@ export default function ParkingMapPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <h3 style={{ fontSize: '22px', fontWeight: 900 }}>Registrar Ingreso</h3>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Espacio {selectedSpace.number} Â· {currentZone?.name || 'â€”'}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Espacio {selectedSpace.number} · {currentZone?.name || '—'}</span>
               </div>
               <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowEntry(false)}>
                 <X size={18} />
@@ -309,7 +309,7 @@ export default function ParkingMapPage() {
                   value={entryForm.vehicleType}
                   onChange={(e) => setEntryForm({ ...entryForm, vehicleType: e.target.value })}
                 >
-                  <option value="CAR">AutomÃ³vil</option>
+                  <option value="CAR">Automóvil</option>
                   <option value="MOTORCYCLE">Motocicleta</option>
                   <option value="VAN">Camioneta</option>
                 </select>
@@ -321,7 +321,7 @@ export default function ParkingMapPage() {
             </div>
 
             <button className="btn-primary" style={{ width: '100%', height: '60px' }} onClick={() => void submitEntry()} disabled={processing || !entryForm.plate.trim()}>
-              {processing ? 'Procesandoâ€¦' : 'Confirmar Ingreso'}
+              {processing ? 'Procesando…' : 'Confirmar Ingreso'}
             </button>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function ParkingMapPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <h3 style={{ fontSize: '22px', fontWeight: 900 }}>Procesar Salida</h3>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Ticket #{selectedTicket.ticketCode} Â· Espacio {selectedSpace.number}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Ticket #{selectedTicket.ticketCode} · Espacio {selectedSpace.number}</span>
               </div>
               <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowExit(false)}>
                 <X size={18} />
@@ -352,7 +352,7 @@ export default function ParkingMapPage() {
             </div>
 
             <div style={{ marginBottom: '22px' }}>
-              <div className="input-label" style={{ marginBottom: '8px' }}>MÃ©todo de pago</div>
+              <div className="input-label" style={{ marginBottom: '8px' }}>Método de pago</div>
               <select
                 className="white-card"
                 style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }}
@@ -366,7 +366,7 @@ export default function ParkingMapPage() {
             </div>
 
             <button className="btn-primary" style={{ width: '100%', height: '60px', background: 'var(--accent-danger)' }} onClick={() => void submitExit()} disabled={processing}>
-              {processing ? 'Procesandoâ€¦' : 'Confirmar Salida'}
+              {processing ? 'Procesando…' : 'Confirmar Salida'}
             </button>
           </div>
         </div>

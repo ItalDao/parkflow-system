@@ -55,7 +55,7 @@ function parseLots(data: unknown): ParkingLotOption[] {
 
 const roleBadge: Record<string, { label: string; cls: string; desc: string }> = {
   SUPER_ADMIN: { label: 'Super Admin', cls: 'badge-purple', desc: 'Control total' },
-  ADMIN: { label: 'Admin', cls: 'badge-info', desc: 'GestiÃ³n de sede' },
+  ADMIN: { label: 'Admin', cls: 'badge-info', desc: 'Gestión de sede' },
   OPERATOR: { label: 'Operador', cls: 'badge-success', desc: 'Solo cabina' },
 };
 
@@ -209,7 +209,7 @@ export default function UsersPage() {
 
    const currentLotLabel = useMemo(() => {
       const lot = lots.find(l => l.id === selectedLotId);
-      return lot?.name || 'â€”';
+      return lot?.name || '—';
    }, [lots, selectedLotId]);
 
   if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
@@ -236,7 +236,7 @@ export default function UsersPage() {
       {/* Header Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>GestiÃ³n de Personal</h2>
+            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Gestión de Personal</h2>
             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Control de acceso y roles operativos</span>
          </div>
          <div style={{ display: 'flex', gap: '12px' }}>
@@ -291,7 +291,7 @@ export default function UsersPage() {
                      <th>Email Corportativo</th>
                      <th>Rol / Permisos</th>
                      <th>Sede</th>
-                     <th>Ãšltima Actividad</th>
+                     <th>Última Actividad</th>
                      <th>Estado</th>
                      <th style={{ textAlign: 'right' }}>Acciones</th>
                   </tr>
@@ -317,7 +317,7 @@ export default function UsersPage() {
                           </span>
                        </td>
                        <td style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>
-                         {u.parkingLot?.name || u.assignedLot?.name || 'â€”'}
+                         {u.parkingLot?.name || u.assignedLot?.name || '—'}
                        </td>
                        <td style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                           {u.lastLoginAt ? formatDate(u.lastLoginAt) : 'Sin accesos'}
@@ -375,7 +375,7 @@ export default function UsersPage() {
                     <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
                  </div>
                  <div className="form-group">
-                    <label className="input-label">ContraseÃ±a</label>
+                    <label className="input-label">Contraseña</label>
                     <input className="white-card" type="password" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
                  </div>
                  <div className="form-group">
@@ -456,14 +456,14 @@ export default function UsersPage() {
                               }
                            }}
                         >
-                           <option value="">â€”</option>
+                           <option value="">—</option>
                            {lots.map(l => (
                               <option key={l.id} value={l.id}>{l.name}</option>
                            ))}
                         </select>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '8px' }}>
                            {editingUser.role === 'ADMIN'
-                              ? 'Al guardar, el usuario quedarÃ¡ como Admin de la sede seleccionada.'
+                              ? 'Al guardar, el usuario quedará como Admin de la sede seleccionada.'
                               : 'Operadores trabajan en la sede asignada.'}
                         </div>
                      </div>

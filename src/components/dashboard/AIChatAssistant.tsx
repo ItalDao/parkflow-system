@@ -26,7 +26,7 @@ export function AIChatAssistant() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hola. Puedo mostrar mÃ©tricas en vivo y abrir mÃ³dulos. Escribe "ayuda" para ver comandos.' }
+    { role: 'assistant', text: 'Hola. Puedo mostrar métricas en vivo y abrir módulos. Escribe "ayuda" para ver comandos.' }
   ]);
   const [input, setInput] = useState('');
 
@@ -69,7 +69,7 @@ export function AIChatAssistant() {
       return { name: z.name, total, occupied, occupancy };
     }).sort((a, b) => b.occupancy - a.occupancy);
     const top = metrics.slice(0, 3).map((m) => `- ${m.name}: ${m.occupancy}% (${m.occupied}/${m.total})`).join('\n');
-    return `Top zonas por ocupaciÃ³n:\n${top}`;
+    return `Top zonas por ocupación:\n${top}`;
   }, [zones]);
 
   const helpText = useMemo(() => {
@@ -103,12 +103,12 @@ export function AIChatAssistant() {
     if (cmd.includes('ocupacion')) {
       const lotName = stats?.parkingLot?.name ? ` (${stats.parkingLot.name})` : '';
       pushAssistant(
-        `OcupaciÃ³n${lotName}: ${stats?.occupancyRate ?? 0}%\n` +
+        `Ocupación${lotName}: ${stats?.occupancyRate ?? 0}%\n` +
         `- Ocupados: ${stats?.occupiedSpaces ?? 0}/${stats?.totalSpaces ?? 0}\n` +
         `- Disponibles: ${stats?.availableSpaces ?? 0}\n` +
         `- Reservados: ${stats?.reservedSpaces ?? 0}\n` +
         `- Mantenimiento: ${stats?.maintenanceSpaces ?? 0}\n` +
-        `- VehÃ­culos hoy: ${stats?.todayVehicles ?? 0}`
+        `- Vehículos hoy: ${stats?.todayVehicles ?? 0}`
       );
       return;
     }
@@ -128,16 +128,16 @@ export function AIChatAssistant() {
         'suscripciones': '/dashboard/subscriptions',
         'usuarios': '/dashboard/users',
         'vehiculos': '/dashboard/vehicles',
-        'vehÃ­culos': '/dashboard/vehicles',
+        'vehículos': '/dashboard/vehicles',
         'auditoria': '/dashboard/audit',
-        'auditorÃ­a': '/dashboard/audit',
+        'auditoría': '/dashboard/audit',
         'mapa': '/dashboard/parking-map',
         'notificaciones': '/dashboard/notifications',
         'mensajes': '/dashboard/messages',
         'gestion': '/dashboard/management',
-        'gestiÃ³n': '/dashboard/management',
+        'gestión': '/dashboard/management',
         'configuracion': '/dashboard/settings',
-        'configuraciÃ³n': '/dashboard/settings',
+        'configuración': '/dashboard/settings',
         'dashboard': '/dashboard',
       };
       const route = routes[target];
@@ -150,7 +150,7 @@ export function AIChatAssistant() {
       return;
     }
 
-    pushAssistant(`No entendÃ­ "${text}".\n\n${helpText}`);
+    pushAssistant(`No entendí "${text}".\n\n${helpText}`);
   }, [helpText, loadContext, pushAssistant, router, stats, zoneSummary]);
 
   const send = () => {
@@ -201,7 +201,7 @@ export function AIChatAssistant() {
                <div>
                 <div style={{ fontSize: '15px', fontWeight: 900 }}>Asistente</div>
                 <div style={{ fontSize: '10px', opacity: 0.6, fontWeight: 800 }}>
-                  {loadingContext ? 'ACTUALIZANDO DATOSâ€¦' : 'COMANDOS RÃPIDOS'}
+                  {loadingContext ? 'ACTUALIZANDO DATOS…' : 'COMANDOS RÁPIDOS'}
                 </div>
                </div>
             </div>
@@ -244,7 +244,7 @@ export function AIChatAssistant() {
              <input 
                className="white-card" 
                style={{ flex: 1, border: 'none', padding: '12px 16px', fontSize: '14px', fontWeight: 700 }}
-               placeholder="Escribe un comando (ej: ocupacion, zonas, ir tickets)â€¦"
+               placeholder="Escribe un comando (ej: ocupacion, zonas, ir tickets)…"
                value={input}
                onChange={e => setInput(e.target.value)}
                onKeyDown={e => e.key === 'Enter' && send()}

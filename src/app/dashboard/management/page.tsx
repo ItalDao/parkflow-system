@@ -127,7 +127,7 @@ export default function ManagementPage() {
          { value: 'VIP', label: 'VIP' },
          { value: 'MOTORCYCLE', label: 'Motos' },
          { value: 'DISABLED', label: 'Discapacidad' },
-         { value: 'ELECTRIC', label: 'ElÃ©ctrico' },
+         { value: 'ELECTRIC', label: 'Eléctrico' },
       ],
       []
    );
@@ -136,7 +136,7 @@ export default function ManagementPage() {
       () => [
          { value: 'CAR', label: 'Carro' },
          { value: 'MOTORCYCLE', label: 'Moto' },
-         { value: 'TRUCK', label: 'CamiÃ³n' },
+         { value: 'TRUCK', label: 'Camión' },
          { value: 'BUS', label: 'Bus' },
       ],
       []
@@ -241,7 +241,7 @@ export default function ManagementPage() {
          return;
       }
       if (!canManage) {
-         toast.error('OperaciÃ³n restringida a administradores');
+         toast.error('Operación restringida a administradores');
          return;
       }
       if (activeTab === 'zones') {
@@ -317,7 +317,7 @@ export default function ManagementPage() {
          return;
       }
       if (!Number.isFinite(price) || price <= 0) {
-         toast.error('Precio invÃ¡lido');
+         toast.error('Precio inválido');
          return;
       }
 
@@ -363,7 +363,7 @@ export default function ManagementPage() {
       if (!rateEdit) return;
       const price = Number(rateEdit.price);
       if (!Number.isFinite(price) || price <= 0) {
-         toast.error('Precio invÃ¡lido');
+         toast.error('Precio inválido');
          return;
       }
 
@@ -435,17 +435,17 @@ export default function ManagementPage() {
    const saveConfig = async () => {
       if (!selectedLotId) return;
       if (!canManage) {
-         toast.error('OperaciÃ³n restringida a administradores');
+         toast.error('Operación restringida a administradores');
          return;
       }
       const gracePeriod = Number(configDraft.gracePeriod);
       const lostTicketFee = Number(configDraft.lostTicketFee);
       if (!Number.isFinite(gracePeriod) || gracePeriod < 0) {
-         toast.error('Tiempo de gracia invÃ¡lido');
+         toast.error('Tiempo de gracia inválido');
          return;
       }
       if (!Number.isFinite(lostTicketFee) || lostTicketFee < 0) {
-         toast.error('Penalidad invÃ¡lida');
+         toast.error('Penalidad inválida');
          return;
       }
 
@@ -464,11 +464,11 @@ export default function ManagementPage() {
          });
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            toast.error(data.error || 'No se pudo guardar la configuraciÃ³n');
+            toast.error(data.error || 'No se pudo guardar la configuración');
             return;
          }
          await reloadContext(selectedLotId);
-         toast.success('ConfiguraciÃ³n guardada');
+         toast.success('Configuración guardada');
       } catch (err) {
          console.error(err);
          toast.error('Error de conexión');
@@ -485,11 +485,11 @@ export default function ManagementPage() {
       const lostTicketFee = Number(lotDraft.lostTicketFee);
 
       if (!name || !address || !city) {
-         toast.error('Nombre, direcciÃ³n y ciudad son requeridos');
+         toast.error('Nombre, dirección y ciudad son requeridos');
          return;
       }
       if (!Number.isFinite(totalSpaces) || totalSpaces < 0) {
-         toast.error('Capacidad invÃ¡lida');
+         toast.error('Capacidad inválida');
          return;
       }
 
@@ -540,8 +540,8 @@ export default function ManagementPage() {
     <div className="animate-premium">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-           <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>GestiÃ³n de Infraestructura</h2>
-           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>ConfiguraciÃ³n de sedes, zonas y esquemas tarifarios</span>
+           <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Gestión de Infraestructura</h2>
+           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Configuración de sedes, zonas y esquemas tarifarios</span>
         </div>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                {lots.length > 1 && activeTab !== 'lots' && (
@@ -573,7 +573,7 @@ export default function ManagementPage() {
                    { id: 'zones', label: 'Zonas', icon: <Layers size={18} /> },
                    { id: 'rates', label: 'Tarifas', icon: <Tag size={18} /> },
                    ...(canManage ? [{ id: 'customers', label: 'Clientes / Abonados', icon: <User size={18} /> } as const] : []),
-                   { id: 'config', label: 'ConfiguraciÃ³n', icon: <Settings size={18} /> },
+                   { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
                 ] as const
              ).map(tab => (
            <button 
@@ -634,9 +634,9 @@ export default function ManagementPage() {
                <thead>
                  <tr>
                     <th style={{ paddingBottom: '24px' }}>Nombre Tarifa</th>
-                    <th>Tipo VehÃ­culo</th>
+                    <th>Tipo Vehículo</th>
                     <th>Modalidad</th>
-                              <th>Ãmbito</th>
+                              <th>Ámbito</th>
                     <th>Precio</th>
                     <th>Estado</th>
                     <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -694,8 +694,8 @@ export default function ManagementPage() {
                 <thead>
                   <tr>
                      <th style={{ paddingBottom: '24px' }}>Cliente</th>
-                     <th>SuscripciÃ³n</th>
-                     <th>VehÃ­culo</th>
+                     <th>Suscripción</th>
+                     <th>Vehículo</th>
                      <th>Vencimiento</th>
                      <th>Estado</th>
                      <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -745,7 +745,7 @@ export default function ManagementPage() {
           {activeTab === 'config' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
                <div className="white-card" style={{ padding: '32px' }}>
-                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>ParÃ¡metros Globales</h4>
+                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Parámetros Globales</h4>
                            {lotDetails && (
                               <div className="white-card" style={{ padding: '12px 14px', marginBottom: '16px', background: 'var(--bg-primary)' }}>
                                  <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sede</div>
@@ -763,7 +763,7 @@ export default function ManagementPage() {
                         <input className="white-card" type="number" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={configDraft.lostTicketFee} onChange={e => setConfigDraft({ ...configDraft, lostTicketFee: e.target.value })} />
                      </div>
                      <button className="btn-primary" style={{ height: '48px' }} onClick={saveConfig} disabled={!canManage}>
-                       {canManage ? 'Guardar ConfiguraciÃ³n' : 'Solo Admin/SuperAdmin'}
+                       {canManage ? 'Guardar Configuración' : 'Solo Admin/SuperAdmin'}
                      </button>
                   </div>
                </div>
@@ -783,7 +783,7 @@ export default function ManagementPage() {
                <div className="white-card" style={{ padding: '32px', background: 'var(--text-primary)', color: 'white' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px', color: 'var(--accent-gold)' }}>Mantenimiento</h4>
                   <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '24px' }}>Realice copias de seguridad de la base de datos o restaure el sistema a un punto anterior.</p>
-                  <div style={{ fontSize: '12px', fontWeight: 800, opacity: 0.85 }}>Backups automatizados: no configurado en esta versiÃ³n.</div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, opacity: 0.85 }}>Backups automatizados: no configurado en esta versión.</div>
                </div>
             </div>
           )}
@@ -842,7 +842,7 @@ export default function ManagementPage() {
                <div className="modal-content-premium animate-premium" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
                   <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Nueva Zona</h3>
                   <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
-                     Crea una zona y (opcional) genera espacios automÃ¡ticamente.
+                     Crea una zona y (opcional) genera espacios automáticamente.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
@@ -888,7 +888,7 @@ export default function ManagementPage() {
                <div className="modal-content-premium animate-premium" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
                   <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '8px' }}>Nueva Tarifa</h3>
                   <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>
-                     Define tarifas por tipo de vehÃ­culo y modalidad. Puedes aplicarla a toda la sede o a una zona.
+                     Define tarifas por tipo de vehículo y modalidad. Puedes aplicarla a toda la sede o a una zona.
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
@@ -904,7 +904,7 @@ export default function ManagementPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                      <div>
-                        <label className="input-label">Tipo de vehÃ­culo</label>
+                        <label className="input-label">Tipo de vehículo</label>
                         <select className="input-field" value={rateDraft.vehicleType} onChange={e => setRateDraft({ ...rateDraft, vehicleType: e.target.value })}>
                            {vehicleTypeOptions.map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>
@@ -920,7 +920,7 @@ export default function ManagementPage() {
                         </select>
                      </div>
                      <div>
-                        <label className="input-label">Ãmbito</label>
+                        <label className="input-label">Ámbito</label>
                         <select className="input-field" value={rateDraft.zoneId} onChange={e => setRateDraft({ ...rateDraft, zoneId: e.target.value })}>
                            <option value="">Sede completa</option>
                            {zones.map(z => (
@@ -984,19 +984,19 @@ export default function ManagementPage() {
                         <input className="input-field" value={lotDraft.name} onChange={e => setLotDraft({ ...lotDraft, name: e.target.value })} placeholder="Ej: Sede Centro" />
                      </div>
                      <div>
-                        <label className="input-label">TelÃ©fono</label>
+                        <label className="input-label">Teléfono</label>
                         <input className="input-field" value={lotDraft.phone} onChange={e => setLotDraft({ ...lotDraft, phone: e.target.value })} placeholder="Opcional" />
                      </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
                      <div>
-                        <label className="input-label">DirecciÃ³n</label>
+                        <label className="input-label">Dirección</label>
                         <input className="input-field" value={lotDraft.address} onChange={e => setLotDraft({ ...lotDraft, address: e.target.value })} placeholder="Calle 123 #45-67" />
                      </div>
                      <div>
                         <label className="input-label">Ciudad</label>
-                        <input className="input-field" value={lotDraft.city} onChange={e => setLotDraft({ ...lotDraft, city: e.target.value })} placeholder="BogotÃ¡" />
+                        <input className="input-field" value={lotDraft.city} onChange={e => setLotDraft({ ...lotDraft, city: e.target.value })} placeholder="Bogotá" />
                      </div>
                   </div>
 
@@ -1037,7 +1037,7 @@ export default function ManagementPage() {
                      </div>
                      <div className="white-card" style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
                         <Clock size={18} color="var(--accent-gold)" />
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Luego podrÃ¡s crear zonas/espacios y tarifas.</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Luego podrás crear zonas/espacios y tarifas.</span>
                      </div>
                   </div>
 

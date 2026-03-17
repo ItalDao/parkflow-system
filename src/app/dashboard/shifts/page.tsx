@@ -153,9 +153,9 @@ function buildShiftPrintableHtml(details: ShiftDetails) {
 
             <div class="hr"></div>
 
-            <div class="muted" style="margin-bottom:8px;">Desglose por MÃ©todo</div>
+            <div class="muted" style="margin-bottom:8px;">Desglose por Método</div>
             <table>
-               <thead><tr><th>MÃ©todo</th><th style="text-align:right;">Transacciones</th><th style="text-align:right;">Total</th></tr></thead>
+               <thead><tr><th>Método</th><th style="text-align:right;">Transacciones</th><th style="text-align:right;">Total</th></tr></thead>
                <tbody>${breakdownRows}</tbody>
             </table>
          </div>
@@ -293,7 +293,7 @@ export default function ShiftsPage() {
       const html = buildShiftPrintableHtml(report);
       const win = window.open('', '_blank', 'noopener,noreferrer');
       if (!win) {
-         toast.error('No se pudo abrir la ventana de impresiÃ³n (bloqueada)');
+         toast.error('No se pudo abrir la ventana de impresión (bloqueada)');
          return;
       }
       win.document.open();
@@ -346,7 +346,7 @@ export default function ShiftsPage() {
                   <h3 style={{ fontSize: '18px', fontWeight: 900 }}>Turno en Curso</h3>
                   {activeShift && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-success)', fontSize: '12px', fontWeight: 800 }}>
-                       <Activity size={14} className="animate-pulse" /> EN LÃNEA
+                       <Activity size={14} className="animate-pulse" /> EN LÍNEA
                     </div>
                   )}
                </div>
@@ -396,7 +396,7 @@ export default function ShiftsPage() {
                            <th>Apertura</th>
                            <th>Cierre</th>
                            <th>Recaudado</th>
-                           <th>VehÃ­culos</th>
+                           <th>Vehículos</th>
                            <th style={{ textAlign: 'right' }}>Acciones</th>
                         </tr>
                      </thead>
@@ -432,7 +432,7 @@ export default function ShiftsPage() {
          {/* Sidebar Stats */}
          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
             <div className="glass-card" style={{ padding: '32px' }}>
-               <h3 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Resumen de MÃ©todos</h3>
+               <h3 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '24px' }}>Resumen de Métodos</h3>
                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {[
                     { label: 'Efectivo', value: activeShift?.totalCash || 0, icon: <Banknote size={16} />, color: 'var(--accent-success)' },
@@ -455,7 +455,7 @@ export default function ShiftsPage() {
                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
                   <AlertCircle size={24} color="var(--accent-gold)" />
                   <p style={{ fontSize: '13px', lineHeight: 1.6, opacity: 0.8 }}>
-                    Recuerda realizar el arqueo cada vez que finalices tu jornada. La diferencia entre lo esperado y lo real serÃ¡ auditada.
+                    Recuerda realizar el arqueo cada vez que finalices tu jornada. La diferencia entre lo esperado y lo real será auditada.
                   </p>
                </div>
             </div>
@@ -529,7 +529,7 @@ export default function ShiftsPage() {
                         className="input-field"
                         value={closeNotes}
                         onChange={(e) => setCloseNotes(e.target.value)}
-                        placeholder="Ej: faltante por billete roto, diferencia por datÃ¡fono..."
+                        placeholder="Ej: faltante por billete roto, diferencia por datáfono..."
                         style={{ minHeight: '96px', paddingTop: '14px' }}
                      />
                   </div>
@@ -540,7 +540,7 @@ export default function ShiftsPage() {
                      onClick={submitCloseShift}
                      disabled={closing || !actualTotal}
                   >
-                     {closing ? 'Cerrandoâ€¦' : 'Cerrar Turno y Generar Reporte'}
+                     {closing ? 'Cerrando…' : 'Cerrar Turno y Generar Reporte'}
                   </button>
                </div>
             </div>
@@ -587,7 +587,7 @@ export default function ShiftsPage() {
                               <th>Esperado</th>
                               <th>Real</th>
                               <th>Diferencia</th>
-                              <th>VehÃ­culos</th>
+                              <th>Vehículos</th>
                               <th style={{ textAlign: 'right' }}>Acciones</th>
                            </tr>
                         </thead>
@@ -688,7 +688,7 @@ export default function ShiftsPage() {
                   </div>
 
                   <div className="white-card" style={{ padding: '18px', marginBottom: '18px' }}>
-                     <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '10px' }}>DESGLOSE POR MÃ‰TODO</div>
+                     <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '10px' }}>DESGLOSE POR MÉTODO</div>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
                         {(['CASH', 'CARD', 'DIGITAL_WALLET', 'PREPAID', 'MONTHLY'] as PaymentMethod[]).map((m) => {
                            const b = report.breakdown[m] || { count: 0, total: 0 };
@@ -706,7 +706,7 @@ export default function ShiftsPage() {
                   <div className="white-card" style={{ padding: '18px' }}>
                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>PAGOS ({report.shift.paymentsCount})</div>
-                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>Ãšltimos {report.payments.length}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)' }}>Últimos {report.payments.length}</div>
                      </div>
                      <div style={{ overflowX: 'auto' }}>
                         <table className="data-table" style={{ width: '100%' }}>
@@ -715,7 +715,7 @@ export default function ShiftsPage() {
                                  <th>Fecha</th>
                                  <th>Ticket</th>
                                  <th>Placa</th>
-                                 <th>MÃ©todo</th>
+                                 <th>Método</th>
                                  <th style={{ textAlign: 'right' }}>Monto</th>
                               </tr>
                            </thead>
