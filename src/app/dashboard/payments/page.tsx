@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -119,7 +119,7 @@ export default function PaymentsPage() {
         }
       } catch (err) {
         console.error(err);
-        toast.error('Error de conexion');
+        toast.error('Error de conexión');
       }
       finally { setLoading(false); }
     })();
@@ -177,7 +177,7 @@ export default function PaymentsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         <div className="glass-card glow" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'var(--accent-success)' }} />
-          <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Recaudación Hoy</div>
+          <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>RecaudaciÃ³n Hoy</div>
           <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--accent-success)' }}>{formatCurrency(todayRevenue)}</div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Actualizado en tiempo real</div>
         </div>
@@ -212,7 +212,7 @@ export default function PaymentsPage() {
         </div>
         <table className="data-table">
           <thead>
-            <tr><th>Factura</th><th>Placa</th><th>Método</th><th>Monto</th><th>Operador</th><th>Fecha</th><th>Estado</th></tr>
+            <tr><th>Factura</th><th>Placa</th><th>MÃ©todo</th><th>Monto</th><th>Operador</th><th>Fecha</th><th>Estado</th></tr>
           </thead>
           <tbody>
             {filtered.map(p => (
@@ -241,3 +241,4 @@ export default function PaymentsPage() {
     </div>
   );
 }
+

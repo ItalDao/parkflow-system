@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { formatCurrency, formatDate, getStatusLabel, getVehicleTypeIcon } from '@/lib/utils';
@@ -109,7 +109,7 @@ function buildPrintableHtml(params: { ticket: Ticket; qrDataUrl?: string | null;
             </div>
             <div style="text-align:right;">
                <div class="muted">Zona / Espacio</div>
-               <div style="font-weight: 900;">${safe(ticket.space.zone.name)} · ${safe(ticket.space.number)}</div>
+               <div style="font-weight: 900;">${safe(ticket.space.zone.name)} Â· ${safe(ticket.space.number)}</div>
             </div>
          </div>
          <div class="hr"></div>
@@ -118,7 +118,7 @@ function buildPrintableHtml(params: { ticket: Ticket; qrDataUrl?: string | null;
                <div class="muted">Entrada</div>
                <div style="font-weight: 800;">${safe(formatDate(ticket.entryTime))}</div>
                <div class="muted" style="margin-top: 10px;">Salida</div>
-               <div style="font-weight: 800;">${safe(ticket.exitTime ? formatDate(ticket.exitTime) : '—')}</div>
+               <div style="font-weight: 800;">${safe(ticket.exitTime ? formatDate(ticket.exitTime) : 'â€”')}</div>
             </div>
             ${qrDataUrl ? `<div style="text-align:center;"><div class="muted">QR</div><img src="${qrDataUrl}" alt="QR" /></div>` : ''}
          </div>
@@ -126,7 +126,7 @@ function buildPrintableHtml(params: { ticket: Ticket; qrDataUrl?: string | null;
          <div class="row">
             <div>
                <div class="muted">Monto</div>
-               <div style="font-weight: 900; font-size: 18px;">${safe(ticket.totalAmount ? formatCurrency(ticket.totalAmount) : '—')}</div>
+               <div style="font-weight: 900; font-size: 18px;">${safe(ticket.totalAmount ? formatCurrency(ticket.totalAmount) : 'â€”')}</div>
             </div>
             <div style="text-align:right;">
                <div class="muted">Operador</div>
@@ -175,7 +175,7 @@ export default function TicketsPage() {
       if (zonesRes.ok) setZones(await zonesRes.json());
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setLoading(false); }
   }, [filter]);
@@ -230,7 +230,7 @@ export default function TicketsPage() {
              toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
          }
       } catch {
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setProcessing(false); }
   };
@@ -251,7 +251,7 @@ export default function TicketsPage() {
          setExitTicket(data[0] || null);
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
          setExitTicket(null);
       }
    };
@@ -271,7 +271,7 @@ export default function TicketsPage() {
             if (!cancelled) setQuote(data);
          } catch (err) {
             console.error(err);
-            toast.error('Error de conexion');
+            toast.error('Error de conexión');
          }
       })();
       return () => {
@@ -285,7 +285,7 @@ export default function TicketsPage() {
     try {
          const cash = cashReceived.trim() ? Number(cashReceived) : undefined;
          if (exitPaymentMethod === 'CASH' && cashReceived.trim() && (!Number.isFinite(cash) || (cash ?? 0) < 0)) {
-            toast.error('Monto recibido inválido');
+            toast.error('Monto recibido invÃ¡lido');
             return;
          }
 
@@ -313,7 +313,7 @@ export default function TicketsPage() {
              toast.error((d as { error?: string }).error || 'No se pudo registrar la salida');
          }
       } catch {
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setProcessing(false); }
   };
@@ -329,7 +329,7 @@ export default function TicketsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Centro Operativo</h2>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Gestión de ingresos y liquidación de tickets</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>GestiÃ³n de ingresos y liquidaciÃ³n de tickets</span>
          </div>
          <div style={{ display: 'flex', gap: '12px' }}>
             <button className="white-card" style={{ padding: '0 24px', height: '48px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', cursor: 'pointer', fontWeight: 800, color: 'var(--text-primary)' }} onClick={() => setShowExit(true)}>
@@ -362,7 +362,7 @@ export default function TicketsPage() {
               <input
                 className="white-card"
                 style={{ border: 'none', padding: '12px 16px 12px 48px', width: '100%', fontSize: '13px', fontWeight: 700 }}
-                placeholder="Buscar por placa o código..."
+                placeholder="Buscar por placa o cÃ³digo..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -374,7 +374,7 @@ export default function TicketsPage() {
            <table className="data-table" style={{ width: '100%' }}>
               <thead>
                  <tr>
-                    <th style={{ paddingBottom: '24px' }}>Vehículo / Ticket</th>
+                    <th style={{ paddingBottom: '24px' }}>VehÃ­culo / Ticket</th>
                     <th>Zona / Espacio</th>
                     <th>Entrada</th>
                     <th>Salida</th>
@@ -404,8 +404,8 @@ export default function TicketsPage() {
                          </div>
                       </td>
                       <td style={{ fontSize: '13px', fontWeight: 700 }}>{formatDate(t.entryTime)}</td>
-                      <td style={{ fontSize: '13px', fontWeight: 700 }}>{t.exitTime ? formatDate(t.exitTime) : '—'}</td>
-                      <td style={{ fontSize: '15px', fontWeight: 900 }}>{t.totalAmount ? formatCurrency(t.totalAmount) : '—'}</td>
+                      <td style={{ fontSize: '13px', fontWeight: 700 }}>{t.exitTime ? formatDate(t.exitTime) : 'â€”'}</td>
+                      <td style={{ fontSize: '15px', fontWeight: 900 }}>{t.totalAmount ? formatCurrency(t.totalAmount) : 'â€”'}</td>
                       <td>
                          <span className={`badge ${t.status === 'ACTIVE' ? 'badge-success' : t.status === 'COMPLETED' ? 'badge-info' : 'badge-danger'}`} style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}>
                             {getStatusLabel(t.status)}
@@ -460,19 +460,19 @@ export default function TicketsPage() {
                    <input className="input-field" placeholder="ABC-123" value={entryForm.plate} onChange={e => setEntryForm({ ...entryForm, plate: e.target.value.toUpperCase() })} style={{ fontSize: '24px', fontWeight: 900, textAlign: 'center', letterSpacing: '4px', height: '64px' }} />
                 </div>
                 <div className="form-group">
-                   <label className="input-label">Vehículo</label>
+                   <label className="input-label">VehÃ­culo</label>
                    <select className="input-field" value={entryForm.vehicleType} onChange={e => setEntryForm({ ...entryForm, vehicleType: e.target.value })} style={{ height: '64px', fontWeight: 800 }}>
-                      <option value="CAR">Automóvil</option>
+                      <option value="CAR">AutomÃ³vil</option>
                       <option value="MOTORCYCLE">Motocicleta</option>
                       <option value="VAN">Camioneta</option>
                    </select>
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                   <label className="input-label">Ubicación</label>
+                   <label className="input-label">UbicaciÃ³n</label>
                    <select className="input-field" value={entryForm.spaceId} onChange={e => setEntryForm({ ...entryForm, spaceId: e.target.value })} style={{ height: '64px', fontWeight: 800 }}>
                       <option value="">Selecciona espacio...</option>
                       {availableSpaces.map(s => (
-                        <option key={s.id} value={s.id}>{s.zoneName} — Slot {s.number}</option>
+                        <option key={s.id} value={s.id}>{s.zoneName} â€” Slot {s.number}</option>
                       ))}
                    </select>
                 </div>
@@ -488,7 +488,7 @@ export default function TicketsPage() {
       {showExit && (
         <div className="modal-overlay" onClick={() => setShowExit(false)}>
            <div className="modal-content-premium animate-premium" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>Liquidación de Salida</h3>
+              <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>LiquidaciÃ³n de Salida</h3>
               <div style={{ position: 'relative', marginBottom: '32px' }}>
                  <input className="input-field" placeholder="Buscar placa o ticket..." value={exitSearch} onChange={e => setExitSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchExit()} style={{ height: '56px', paddingRight: '120px' }} />
                  <button onClick={handleSearchExit} style={{ position: 'absolute', right: '8px', top: '8px', bottom: '8px', background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '0 20px', fontWeight: 800 }}>BUSCAR</button>
@@ -507,7 +507,7 @@ export default function TicketsPage() {
 
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                                  <div>
-                                    <label className="input-label">Método</label>
+                                    <label className="input-label">MÃ©todo</label>
                                     <select className="input-field" value={exitPaymentMethod} onChange={(e) => setExitPaymentMethod(e.target.value as PaymentMethod)} style={{ height: '50px', fontWeight: 800 }}>
                                        <option value="CASH">Efectivo</option>
                                        <option value="CARD">Tarjeta</option>
@@ -544,11 +544,11 @@ export default function TicketsPage() {
                               <div className="white-card" style={{ padding: '16px', marginBottom: '18px' }}>
                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Monto</span>
-                                    <span style={{ fontSize: '14px', fontWeight: 900 }}>{quote ? formatCurrency(quote.pricing.amount) : 'Calculando…'}</span>
+                                    <span style={{ fontSize: '14px', fontWeight: 900 }}>{quote ? formatCurrency(quote.pricing.amount) : 'Calculandoâ€¦'}</span>
                                  </div>
                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tiempo</span>
-                                    <span style={{ fontSize: '13px', fontWeight: 800 }}>{quote ? `${quote.pricing.totalHours} h` : '—'}</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 800 }}>{quote ? `${quote.pricing.totalHours} h` : 'â€”'}</span>
                                  </div>
                               </div>
 
@@ -559,7 +559,7 @@ export default function TicketsPage() {
               ) : exitSearch && (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
                    <AlertCircle size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
-                   <p style={{ fontWeight: 800 }}>No se encontró un ticket activo.</p>
+                   <p style={{ fontWeight: 800 }}>No se encontrÃ³ un ticket activo.</p>
                 </div>
               )}
            </div>
@@ -573,7 +573,7 @@ export default function TicketsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
                      <div>
                         <h3 style={{ fontSize: '22px', fontWeight: 900, marginBottom: '4px' }}>Ticket #{viewingTicket.ticketCode}</h3>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{viewingTicket.vehicle.plate} · {viewingTicket.space.zone.name} · Slot {viewingTicket.space.number}</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>{viewingTicket.vehicle.plate} Â· {viewingTicket.space.zone.name} Â· Slot {viewingTicket.space.number}</div>
                      </div>
                      <button className="white-card" style={{ width: '40px', height: '40px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setViewingTicket(null)}>
                         <X size={18} />
@@ -593,7 +593,7 @@ export default function TicketsPage() {
                            </div>
                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Monto</span>
-                              <span style={{ fontSize: '13px', fontWeight: 900 }}>{viewingTicket.totalAmount ? formatCurrency(viewingTicket.totalAmount) : '—'}</span>
+                              <span style={{ fontSize: '13px', fontWeight: 900 }}>{viewingTicket.totalAmount ? formatCurrency(viewingTicket.totalAmount) : 'â€”'}</span>
                            </div>
                         </div>
                      </div>
@@ -602,9 +602,9 @@ export default function TicketsPage() {
                         {viewingQrDataUrl ? (
                            <img src={viewingQrDataUrl} alt="QR" style={{ width: '220px', height: '220px', objectFit: 'contain', borderRadius: '14px' }} />
                         ) : (
-                           <div style={{ width: '220px', height: '220px', borderRadius: '14px', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 900 }}>Generando…</div>
+                           <div style={{ width: '220px', height: '220px', borderRadius: '14px', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 900 }}>Generandoâ€¦</div>
                         )}
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800 }}>Escanea para buscar por código</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800 }}>Escanea para buscar por cÃ³digo</div>
                      </div>
                   </div>
 
@@ -632,3 +632,4 @@ export default function TicketsPage() {
     </div>
   );
 }
+

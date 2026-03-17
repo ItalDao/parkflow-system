@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error de conexion');
+      toast.error('Error de conexión');
     }
     finally { setLoading(false); }
   };
@@ -80,7 +80,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('Error de conexion');
+      toast.error('Error de conexión');
     }
   };
 
@@ -98,7 +98,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('Error de conexion');
+      toast.error('Error de conexión');
     }
   };
 
@@ -117,7 +117,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('Error de conexion');
+      toast.error('Error de conexión');
     }
   };
 
@@ -139,7 +139,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('Error de conexion');
+      toast.error('Error de conexión');
     }
   };
 
@@ -169,7 +169,7 @@ export default function NotificationsPage() {
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={markAllRead} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} disabled={unreadCount === 0}>
-             <CheckCircle2 size={16} /> Marcar todo leído
+             <CheckCircle2 size={16} /> Marcar todo leÃ­do
           </button>
           <button onClick={clearAll} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} disabled={notifications.length === 0}>
              <Trash2 size={16} /> Limpiar Todo
@@ -212,7 +212,7 @@ export default function NotificationsPage() {
                    
                    <div style={{ display: 'flex', gap: '12px' }}>
                       {!n.isRead && (
-                        <button onClick={() => markAsRead(n.id)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', height: '32px' }}>Marcar como leído</button>
+                        <button onClick={() => markAsRead(n.id)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', height: '32px' }}>Marcar como leÃ­do</button>
                       )}
                       <button onClick={() => deleteNotification(n.id)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontWeight: 700 }}>Eliminar</button>
                    </div>
@@ -227,7 +227,7 @@ export default function NotificationsPage() {
         {filtered.length === 0 && (
           <div className="glass-card" style={{ padding: '100px', textAlign: 'center' }}>
              <Inbox size={64} style={{ margin: '0 auto 24px', opacity: 0.1 }} />
-             <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>Bandeja Vacía</h3>
+             <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)' }}>Bandeja VacÃ­a</h3>
              <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No tienes notificaciones pendientes en este momento.</p>
           </div>
         )}
@@ -237,9 +237,10 @@ export default function NotificationsPage() {
       <div style={{ marginTop: '40px', display: 'flex', gap: '10px' }}>
          <div className={`badge ${filter === 'ALL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'ALL' ? undefined : 'white', border: filter === 'ALL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('ALL')}>Todos</div>
          <div className={`badge ${filter === 'UNREAD' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'UNREAD' ? undefined : 'white', border: filter === 'UNREAD' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('UNREAD')}>Sin leer</div>
-         <div className={`badge ${filter === 'CRITICAL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'CRITICAL' ? undefined : 'white', border: filter === 'CRITICAL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('CRITICAL')}>Alertas Críticas</div>
+         <div className={`badge ${filter === 'CRITICAL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'CRITICAL' ? undefined : 'white', border: filter === 'CRITICAL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('CRITICAL')}>Alertas CrÃ­ticas</div>
          <div className={`badge ${filter === 'OPERATIONAL' ? 'badge-info' : ''}`} style={{ cursor: 'pointer', background: filter === 'OPERATIONAL' ? undefined : 'white', border: filter === 'OPERATIONAL' ? undefined : '1px solid var(--border-color)' }} onClick={() => setFilter('OPERATIONAL')}>Operacionales</div>
       </div>
     </div>
   );
 }
+

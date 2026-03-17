@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Zap, TrendingUp, Info } from 'lucide-react';
@@ -15,14 +15,14 @@ export function AIPredictionWidget() {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
         });
         if (!res.ok) {
-          toast.error('No se pudo cargar el pronóstico');
+          toast.error('No se pudo cargar el pronÃ³stico');
           return;
         }
         const data = await res.json();
         setOccupancy(data.occupancyRate);
       } catch (err) {
         console.error(err);
-        toast.error('Error de conexion');
+        toast.error('Error de conexión');
       }
       finally { setLoading(false); }
     };
@@ -30,9 +30,9 @@ export function AIPredictionWidget() {
   }, []);
 
   const getPrediction = () => {
-    if (occupancy > 80) return { title: 'Saturación Inminente', msg: 'Se recomienda habilitar tarifas dinámicas (+15%) para gestionar la alta demanda.', peak: '15 min' };
-    if (occupancy > 50) return { title: 'Flujo Moderado', msg: 'La tendencia indica estabilidad para las próximas 3 horas. No se requieren ajustes.', peak: '2h 30m' };
-    return { title: 'Demanda Baja', msg: 'Oportunidad para lanzar promociones relámpago y aumentar la rotación.', peak: 'Sin pico' };
+    if (occupancy > 80) return { title: 'SaturaciÃ³n Inminente', msg: 'Se recomienda habilitar tarifas dinÃ¡micas (+15%) para gestionar la alta demanda.', peak: '15 min' };
+    if (occupancy > 50) return { title: 'Flujo Moderado', msg: 'La tendencia indica estabilidad para las prÃ³ximas 3 horas. No se requieren ajustes.', peak: '2h 30m' };
+    return { title: 'Demanda Baja', msg: 'Oportunidad para lanzar promociones relÃ¡mpago y aumentar la rotaciÃ³n.', peak: 'Sin pico' };
   };
 
   const predict = getPrediction();
@@ -72,7 +72,7 @@ export function AIPredictionWidget() {
             <div className="white-card" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <TrendingUp size={20} color="var(--accent-gold)" />
-                  <div style={{ fontSize: '14px', fontWeight: 700 }}>Próximo Pico: {predict.peak}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700 }}>PrÃ³ximo Pico: {predict.peak}</div>
                </div>
                <Info size={16} style={{ opacity: 0.4 }} />
             </div>
@@ -82,3 +82,4 @@ export function AIPredictionWidget() {
     </div>
   );
 }
+

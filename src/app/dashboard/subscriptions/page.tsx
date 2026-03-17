@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -119,7 +119,7 @@ export default function SubscriptionsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setLoading(false); }
   }, []);
@@ -245,7 +245,7 @@ export default function SubscriptionsPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudo guardar la suscripción');
+            toast.error((data as { error?: string }).error || 'No se pudo guardar la suscripciÃ³n');
             return;
          }
 
@@ -254,7 +254,7 @@ export default function SubscriptionsPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       } finally {
          setSaving(false);
       }
@@ -285,7 +285,7 @@ export default function SubscriptionsPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
    };
 
@@ -296,7 +296,7 @@ export default function SubscriptionsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Clientes Mensuales</h2>
-           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Gestión de suscripciones, renovaciones y convenios</span>
+           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>GestiÃ³n de suscripciones, renovaciones y convenios</span>
         </div>
             {canManage && (
                <button className="btn-primary" style={{ padding: '0 32px', height: '56px' }} onClick={openCreate}>
@@ -317,7 +317,7 @@ export default function SubscriptionsPage() {
             <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-success)' }}><Calendar size={24} /></div>
             <div>
                   <div style={{ fontSize: '24px', fontWeight: 900 }}>{subscriptions.filter(s => effectiveStatus(s) === 'ACTIVE').length}</div>
-               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>SUSCRIPCIONES AL DÍA</div>
+               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>SUSCRIPCIONES AL DÃA</div>
             </div>
          </div>
          <div className="white-card" style={{ flex: 1, padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -329,7 +329,7 @@ export default function SubscriptionsPage() {
                      const diffDays = (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
                      return effectiveStatus(s) === 'ACTIVE' && diffDays >= 0 && diffDays <= 7;
                   }).length}</div>
-               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>VENCIMIENTOS PRÓXIMOS</div>
+               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)' }}>VENCIMIENTOS PRÃ“XIMOS</div>
             </div>
          </div>
       </div>
@@ -352,7 +352,7 @@ export default function SubscriptionsPage() {
                <thead>
                   <tr>
                      <th style={{ paddingBottom: '24px' }}>Cliente</th>
-                     <th>Vehículo</th>
+                     <th>VehÃ­culo</th>
                      <th>Vigencia</th>
                      <th>Precio</th>
                      <th>Estado</th>
@@ -425,9 +425,9 @@ export default function SubscriptionsPage() {
                <div className="modal-content-premium animate-premium" style={{ maxWidth: '720px' }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ fontSize: '22px', fontWeight: 900 }}>{editing ? 'Renovar Suscripción' : 'Nueva Mensualidad'}</h3>
+                        <h3 style={{ fontSize: '22px', fontWeight: 900 }}>{editing ? 'Renovar SuscripciÃ³n' : 'Nueva Mensualidad'}</h3>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                           {editing ? `Placa ${editing.vehicle.plate}` : 'Crea un cliente mensual con vehículo asociado'}
+                           {editing ? `Placa ${editing.vehicle.plate}` : 'Crea un cliente mensual con vehÃ­culo asociado'}
                         </span>
                      </div>
                      <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowCreate(false)} disabled={saving}>
@@ -449,7 +449,7 @@ export default function SubscriptionsPage() {
                         <input className="input-field" value={form.customerLastName} onChange={(e) => setForm(prev => ({ ...prev, customerLastName: e.target.value }))} disabled={!!editing} />
                      </div>
                      <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label className="input-label">Teléfono (opcional)</label>
+                        <label className="input-label">TelÃ©fono (opcional)</label>
                         <input className="input-field" value={form.customerPhone} onChange={(e) => setForm(prev => ({ ...prev, customerPhone: e.target.value }))} disabled={!!editing} />
                      </div>
 
@@ -458,9 +458,9 @@ export default function SubscriptionsPage() {
                         <input className="input-field" value={form.plate} onChange={(e) => setForm(prev => ({ ...prev, plate: e.target.value.toUpperCase() }))} disabled={!!editing} />
                      </div>
                      <div className="form-group">
-                        <label className="input-label">Tipo de vehículo</label>
+                        <label className="input-label">Tipo de vehÃ­culo</label>
                         <select className="input-field" value={form.vehicleType} onChange={(e) => setForm(prev => ({ ...prev, vehicleType: e.target.value }))} disabled={!!editing}>
-                           <option value="CAR">Automóvil</option>
+                           <option value="CAR">AutomÃ³vil</option>
                            <option value="MOTORCYCLE">Motocicleta</option>
                            <option value="VAN">Camioneta</option>
                         </select>
@@ -475,7 +475,7 @@ export default function SubscriptionsPage() {
                      </div>
 
                      <div className="form-group">
-                        <label className="input-label">Tipo de suscripción</label>
+                        <label className="input-label">Tipo de suscripciÃ³n</label>
                         <select className="input-field" value={form.type} onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value as SubscriptionData['type'] }))}>
                            <option value="FIXED">Fija</option>
                            <option value="FLOATING">Flotante</option>
@@ -503,7 +503,7 @@ export default function SubscriptionsPage() {
                   </div>
 
                   <button className="btn-primary" style={{ width: '100%', height: '56px', marginTop: '18px' }} onClick={() => void submit()} disabled={saving}>
-                     {saving ? 'Guardando…' : (editing ? 'Renovar' : 'Crear suscripción')}
+                     {saving ? 'Guardandoâ€¦' : (editing ? 'Renovar' : 'Crear suscripciÃ³n')}
                   </button>
                </div>
             </div>
@@ -511,3 +511,4 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
+

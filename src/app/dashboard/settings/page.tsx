@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -90,7 +90,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
    }, [router]);
 
@@ -109,7 +109,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
    }, [router]);
 
@@ -126,7 +126,7 @@ export default function SettingsPage() {
       if (res.ok) setRates(await res.json());
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
   }, [router]);
 
@@ -168,7 +168,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       } finally {
          setSavingLot(false);
       }
@@ -189,7 +189,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setSaving(null); }
   };
@@ -211,7 +211,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
   };
 
@@ -228,7 +228,7 @@ export default function SettingsPage() {
         {/* Sede Config */}
         <div className="glass-card" style={{ padding: '40px' }}>
            <h3 style={{ fontSize: '20px', fontWeight: 900, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Building size={24} color="var(--accent-gold)" /> Configuración de Sede
+              <Building size={24} color="var(--accent-gold)" /> ConfiguraciÃ³n de Sede
            </h3>
            {!lotDraft ? (
              <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>No hay sede asignada.</div>
@@ -244,11 +244,11 @@ export default function SettingsPage() {
                      <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.city} onChange={e => setLotDraft({ ...lotDraft, city: e.target.value })} />
                   </div>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                     <label className="input-label" style={{ marginBottom: '10px' }}>Dirección</label>
+                     <label className="input-label" style={{ marginBottom: '10px' }}>DirecciÃ³n</label>
                      <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.address} onChange={e => setLotDraft({ ...lotDraft, address: e.target.value })} />
                   </div>
                   <div className="form-group">
-                     <label className="input-label" style={{ marginBottom: '10px' }}>Teléfono</label>
+                     <label className="input-label" style={{ marginBottom: '10px' }}>TelÃ©fono</label>
                      <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.phone || ''} onChange={e => setLotDraft({ ...lotDraft, phone: e.target.value })} />
                   </div>
                   <div className="form-group">
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                   </div>
                </div>
                <button className="btn-primary" style={{ padding: '0 32px', height: '56px' }} onClick={handleSaveLot} disabled={savingLot}>
-                 {savingLot ? 'Guardando…' : 'Actualizar Información'}
+                 {savingLot ? 'Guardandoâ€¦' : 'Actualizar InformaciÃ³n'}
                </button>
              </>
            )}
@@ -286,7 +286,7 @@ export default function SettingsPage() {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                          <span style={{ fontSize: '15px', fontWeight: 900 }}>{r.name}</span>
-                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>COBRO POR HORA FRACCIÓN</span>
+                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>COBRO POR HORA FRACCIÃ“N</span>
                       </div>
                    </div>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -309,7 +309,7 @@ export default function SettingsPage() {
          {/* Operations Policy */}
          <div className="glass-card" style={{ padding: '40px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-               <Clock size={22} color="var(--accent-gold)" /> Políticas de Operación
+               <Clock size={22} color="var(--accent-gold)" /> PolÃ­ticas de OperaciÃ³n
             </h3>
             {!lotDraft ? (
               <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>No hay sede asignada.</div>
@@ -327,7 +327,7 @@ export default function SettingsPage() {
                     />
                  </div>
                  <div className="form-group">
-                    <label className="input-label">Penalidad por pérdida de ticket</label>
+                    <label className="input-label">Penalidad por pÃ©rdida de ticket</label>
                     <input
                       type="number"
                       min={0}
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                     />
                  </div>
                  <button className="btn-dark" style={{ height: '56px', borderRadius: '16px' }} onClick={handleSaveLot} disabled={savingLot}>
-                   {savingLot ? 'Guardando…' : 'Guardar Políticas'}
+                   {savingLot ? 'Guardandoâ€¦' : 'Guardar PolÃ­ticas'}
                  </button>
               </div>
             )}
@@ -347,15 +347,15 @@ export default function SettingsPage() {
          {/* System Telemetry */}
          <div className="glass-card" style={{ padding: '40px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-               <Globe size={22} color="var(--accent-gold)" /> Telemetría del Sistema
+               <Globe size={22} color="var(--accent-gold)" /> TelemetrÃ­a del Sistema
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                {[
-                 { k: 'Environment', v: telemetry?.env || '—' },
-                 { k: 'Node.js', v: telemetry?.node || '—' },
-                 { k: 'Prisma Client', v: telemetry?.prisma || '—' },
-                 { k: 'DB Version', v: telemetry?.db ? String(telemetry.db).split('\n')[0] : '—' },
-                 { k: 'Uptime', v: telemetry ? formatUptime(telemetry.uptimeSeconds) : '—' },
+                 { k: 'Environment', v: telemetry?.env || 'â€”' },
+                 { k: 'Node.js', v: telemetry?.node || 'â€”' },
+                 { k: 'Prisma Client', v: telemetry?.prisma || 'â€”' },
+                 { k: 'DB Version', v: telemetry?.db ? String(telemetry.db).split('\n')[0] : 'â€”' },
+                 { k: 'Uptime', v: telemetry ? formatUptime(telemetry.uptimeSeconds) : 'â€”' },
                ].map(item => (
                  <div key={item.k} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'white', borderRadius: '16px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{item.k}</span>
@@ -384,18 +384,18 @@ export default function SettingsPage() {
                     />
                  </div>
                  <div className="form-group">
-                    <label className="input-label">Tipo de vehículo</label>
+                    <label className="input-label">Tipo de vehÃ­culo</label>
                     <select
                       className="white-card"
                       style={{ border: 'none', padding: '18px', width: '100%', fontSize: '14px', fontWeight: 800 }}
                       value={newRate.vehicleType}
                       onChange={e => setNewRate({ ...newRate, vehicleType: e.target.value })}
                     >
-                      <option value="CAR">Automóvil</option>
+                      <option value="CAR">AutomÃ³vil</option>
                       <option value="MOTORCYCLE">Motocicleta</option>
                       <option value="VAN">Camioneta / Van</option>
-                      <option value="TRUCK">Camión</option>
-                      <option value="ELECTRIC">Eléctrico</option>
+                      <option value="TRUCK">CamiÃ³n</option>
+                      <option value="ELECTRIC">ElÃ©ctrico</option>
                       <option value="BICYCLE">Bicicleta</option>
                     </select>
                  </div>
@@ -422,3 +422,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

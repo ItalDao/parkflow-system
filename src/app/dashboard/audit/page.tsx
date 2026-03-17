@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
@@ -22,7 +22,7 @@ function computeTrend(current: number, previous: number): Trend {
    if (!Number.isFinite(previous)) previous = 0;
    if (previous <= 0) {
       if (current <= 0) return { pctLabel: '0%', up: true, hasPrev: false };
-      return { pctLabel: '—', up: true, hasPrev: false };
+      return { pctLabel: 'â€”', up: true, hasPrev: false };
    }
    const pct = Math.round(((current - previous) / previous) * 100);
    return { pctLabel: `${Math.abs(pct)}%`, up: pct >= 0, hasPrev: true };
@@ -45,7 +45,7 @@ export default function AuditPage() {
       if (res.ok) setLogs(await res.json());
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setLoading(false); }
   }, []);
@@ -103,12 +103,12 @@ export default function AuditPage() {
     <div className="animate-premium" style={{ paddingTop: '10px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>Bitácora de Auditoría</h2>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Trazabilidad total de acciones críticas del sistema</span>
+            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>BitÃ¡cora de AuditorÃ­a</h2>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Trazabilidad total de acciones crÃ­ticas del sistema</span>
          </div>
          <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ position: 'relative', width: '300px' }}>
-               <input className="white-card" style={{ border: 'none', padding: '12px 16px 12px 48px', width: '100%', fontSize: '13px', fontWeight: 700 }} placeholder="Buscar por acción, entidad o usuario..." value={search} onChange={e => setSearch(e.target.value)} />
+               <input className="white-card" style={{ border: 'none', padding: '12px 16px 12px 48px', width: '100%', fontSize: '13px', fontWeight: 700 }} placeholder="Buscar por acciÃ³n, entidad o usuario..." value={search} onChange={e => setSearch(e.target.value)} />
                <Search size={18} style={{ position: 'absolute', left: '16px', top: '12px', color: 'var(--text-muted)' }} />
             </div>
             <button className="white-card" style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }} onClick={() => setShowFilters(true)} title="Filtros">
@@ -131,13 +131,13 @@ export default function AuditPage() {
                            onChange={(e) => setDays(Number(e.target.value) as 7 | 30 | 90)}
                            style={{ border: 'none', padding: '12px 14px', width: '100%', fontWeight: 800 }}
                         >
-                           <option value={7}>Últimos 7 días</option>
-                           <option value={30}>Últimos 30 días</option>
-                           <option value={90}>Últimos 90 días</option>
+                           <option value={7}>Ãšltimos 7 dÃ­as</option>
+                           <option value={30}>Ãšltimos 30 dÃ­as</option>
+                           <option value={90}>Ãšltimos 90 dÃ­as</option>
                         </select>
                      </div>
                      <div>
-                        <label className="input-label">Acción</label>
+                        <label className="input-label">AcciÃ³n</label>
                         <select
                            className="white-card"
                            value={actionFilter}
@@ -194,7 +194,7 @@ export default function AuditPage() {
                   <tr>
                      <th style={{ padding: '24px' }}>Timestamp</th>
                      <th>Responsable</th>
-                     <th>Acción</th>
+                     <th>AcciÃ³n</th>
                      <th>Recurso</th>
                      <th>ID Recurso</th>
                      <th style={{ textAlign: 'right', paddingRight: '24px' }}>Estado</th>
@@ -231,7 +231,7 @@ export default function AuditPage() {
                           </span>
                        </td>
                        <td style={{ fontSize: '13px', fontWeight: 700 }}>{l.entity}</td>
-                       <td style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{l.entityId?.substring(0, 8) || '—'}</td>
+                       <td style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{l.entityId?.substring(0, 8) || 'â€”'}</td>
                        <td style={{ textAlign: 'right', paddingRight: '24px' }}>
                           <Shield size={16} color="var(--accent-success)" style={{ display: 'inline-block' }} />
                        </td>
@@ -270,3 +270,4 @@ export default function AuditPage() {
     </div>
   );
 }
+

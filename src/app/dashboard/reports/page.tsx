@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
@@ -25,7 +25,7 @@ function computeTrend(current: number, previous: number): Trend {
    if (!Number.isFinite(previous)) previous = 0;
    if (previous <= 0) {
       if (current <= 0) return { pctLabel: '0%', up: true };
-      return { pctLabel: '—', up: true };
+      return { pctLabel: 'â€”', up: true };
    }
    const pct = Math.round(((current - previous) / previous) * 100);
    const up = pct >= 0;
@@ -97,7 +97,7 @@ function buildReportsPrintableHtml(args: { days: number; stats: Stats | null; ch
             <div style="display:flex; justify-content:space-between; align-items:baseline; gap: 16px;">
                <div>
                   <div class="muted">Reporte</div>
-                  <h1 class="title">Finanzas (últimos ${safe(days)} días)</h1>
+                  <h1 class="title">Finanzas (Ãºltimos ${safe(days)} dÃ­as)</h1>
                </div>
                <div style="text-align:right;">
                   <div class="muted">Generado</div>
@@ -109,14 +109,14 @@ function buildReportsPrintableHtml(args: { days: number; stats: Stats | null; ch
                <div class="kpi"><div class="muted">Ingresos Mensuales</div><div class="v">${safe(formatCurrency(stats?.monthRevenue || 0))}</div></div>
                <div class="kpi"><div class="muted">Ingresos Hoy</div><div class="v">${safe(formatCurrency(stats?.todayRevenue || 0))}</div></div>
                <div class="kpi"><div class="muted">Ticket Promedio</div><div class="v">${safe(formatCurrency(stats?.avgTicket || 0))}</div></div>
-               <div class="kpi"><div class="muted">Vehículos Hoy</div><div class="v">${safe(String(stats?.totalTickets || 0))}</div></div>
+               <div class="kpi"><div class="muted">VehÃ­culos Hoy</div><div class="v">${safe(String(stats?.totalTickets || 0))}</div></div>
             </div>
 
             <div class="hr"></div>
 
-            <div class="muted" style="margin-bottom:8px;">Distribución por Método</div>
+            <div class="muted" style="margin-bottom:8px;">DistribuciÃ³n por MÃ©todo</div>
             <table>
-               <thead><tr><th>Método</th><th style="text-align:right;">Transacciones</th><th style="text-align:right;">Total</th><th style="text-align:right;">%</th></tr></thead>
+               <thead><tr><th>MÃ©todo</th><th style="text-align:right;">Transacciones</th><th style="text-align:right;">Total</th><th style="text-align:right;">%</th></tr></thead>
                <tbody>${breakdownRows || '<tr><td colspan="4" style="color:#6b7280;">Sin datos</td></tr>'}</tbody>
             </table>
 
@@ -124,7 +124,7 @@ function buildReportsPrintableHtml(args: { days: number; stats: Stats | null; ch
 
             <div class="muted" style="margin-bottom:8px;">Ingresos Diarios</div>
             <table>
-               <thead><tr><th>Fecha</th><th>Día</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Transacciones</th></tr></thead>
+               <thead><tr><th>Fecha</th><th>DÃ­a</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Transacciones</th></tr></thead>
                <tbody>${chartRows || '<tr><td colspan="4" style="color:#6b7280;">Sin datos</td></tr>'}</tbody>
             </table>
          </div>
@@ -184,7 +184,7 @@ export default function ReportsPage() {
          if (bRes.ok) setBreakdown(await bRes.json());
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setLoading(false); }
    }, [days]);
@@ -238,7 +238,7 @@ export default function ReportsPage() {
          URL.revokeObjectURL(url);
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
    };
 
@@ -247,7 +247,7 @@ export default function ReportsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
            <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Reportes Financieros</h2>
-           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Análisis de ingresos, ocupación y rendimiento operativo</span>
+           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>AnÃ¡lisis de ingresos, ocupaciÃ³n y rendimiento operativo</span>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
            <button
@@ -256,7 +256,7 @@ export default function ReportsPage() {
              onClick={() => setDays((d) => (d === 7 ? 30 : 7))}
              title="Cambiar rango"
            >
-              <Calendar size={18} /> Últimos {days} días
+              <Calendar size={18} /> Ãšltimos {days} dÃ­as
            </button>
            <button className="btn-primary" style={{ padding: '0 32px', height: '48px' }} onClick={handlePrint}>
               <Download size={18} /> Exportar PDF
@@ -267,10 +267,10 @@ export default function ReportsPage() {
       {/* KPI Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
          {[
-           { label: 'Ingresos Mensuales', value: formatCurrency(stats?.monthRevenue || 0), icon: <Banknote size={22} />, up: trends?.month.up ?? true, trend: trends?.month.pctLabel ?? '—' },
-           { label: 'Ingresos Hoy', value: formatCurrency(stats?.todayRevenue || 0), icon: <TrendingUp size={22} />, up: trends?.today.up ?? true, trend: trends?.today.pctLabel ?? '—' },
-           { label: 'Ticket Promedio', value: formatCurrency(stats?.avgTicket || 0), icon: <BarChart3 size={22} />, up: trends?.avgTicket.up ?? true, trend: trends?.avgTicket.pctLabel ?? '—' },
-           { label: 'Vehículos Hoy', value: String(stats?.totalTickets || 0), icon: <Car size={22} />, up: trends?.vehicles.up ?? true, trend: trends?.vehicles.pctLabel ?? '—' },
+           { label: 'Ingresos Mensuales', value: formatCurrency(stats?.monthRevenue || 0), icon: <Banknote size={22} />, up: trends?.month.up ?? true, trend: trends?.month.pctLabel ?? 'â€”' },
+           { label: 'Ingresos Hoy', value: formatCurrency(stats?.todayRevenue || 0), icon: <TrendingUp size={22} />, up: trends?.today.up ?? true, trend: trends?.today.pctLabel ?? 'â€”' },
+           { label: 'Ticket Promedio', value: formatCurrency(stats?.avgTicket || 0), icon: <BarChart3 size={22} />, up: trends?.avgTicket.up ?? true, trend: trends?.avgTicket.pctLabel ?? 'â€”' },
+           { label: 'VehÃ­culos Hoy', value: String(stats?.totalTickets || 0), icon: <Car size={22} />, up: trends?.vehicles.up ?? true, trend: trends?.vehicles.pctLabel ?? 'â€”' },
          ].map((kpi, i) => (
            <div key={i} className="glass-card glow" style={{ padding: '32px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -315,7 +315,7 @@ export default function ReportsPage() {
          </div>
 
          <div className="glass-card" style={{ padding: '40px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '40px' }}>Distribución por Método</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '40px' }}>DistribuciÃ³n por MÃ©todo</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                {(breakdown?.items?.length ? breakdown.items : []).map((m, idx) => {
                  const pct = totalBreakdown ? Math.round((m.total / totalBreakdown) * 100) : 0;
@@ -345,7 +345,7 @@ export default function ReportsPage() {
                <div style={{ padding: '10px', borderRadius: '12px', background: 'white' }}><FileDown size={18} /></div>
                <div>
                   <div style={{ fontSize: '13px', fontWeight: 800 }}>Reporte Detallado</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Descargar CSV de pagos (últimos {days} días)</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Descargar CSV de pagos (Ãºltimos {days} dÃ­as)</div>
                </div>
             </div>
          </div>
@@ -353,3 +353,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

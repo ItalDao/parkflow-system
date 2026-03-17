@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getVehicleTypeIcon } from '@/lib/utils';
@@ -65,12 +65,12 @@ export default function VehiclesPage() {
             setVehicles(await res.json());
          } else {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudieron cargar los vehículos');
+            toast.error((data as { error?: string }).error || 'No se pudieron cargar los vehÃ­culos');
             setVehicles([]);
          }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
     finally { setLoading(false); }
   }, []);
@@ -97,11 +97,11 @@ export default function VehiclesPage() {
         fetchData();
          } else {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudo actualizar el vehículo');
+            toast.error((data as { error?: string }).error || 'No se pudo actualizar el vehÃ­culo');
       }
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       }
   };
 
@@ -129,7 +129,7 @@ export default function VehiclesPage() {
 
          if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudo crear el vehículo');
+            toast.error((data as { error?: string }).error || 'No se pudo crear el vehÃ­culo');
             return;
          }
 
@@ -138,7 +138,7 @@ export default function VehiclesPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('Error de conexion');
+         toast.error('Error de conexión');
       } finally {
          setCreating(false);
       }
@@ -191,7 +191,7 @@ export default function VehiclesPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)' }}>Registro Vehicular</h2>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Historial, control de acceso y gestión de flota interna</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Historial, control de acceso y gestiÃ³n de flota interna</span>
          </div>
          <div style={{ display: 'flex', gap: '12px' }}>
             <div style={{ position: 'relative', width: '320px' }}>
@@ -228,7 +228,7 @@ export default function VehiclesPage() {
 
               <div style={{ marginBottom: '24px' }}>
                  <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '2px', color: 'var(--text-primary)' }}>{v.plate}</div>
-                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>{v.brand || 'Marca no registrada'} · {v.color || 'Color no definido'}</div>
+                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>{v.brand || 'Marca no registrada'} Â· {v.color || 'Color no definido'}</div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
@@ -255,7 +255,7 @@ export default function VehiclesPage() {
       {editingVehicle && (
         <div className="modal-overlay" onClick={() => setEditingVehicle(null)}>
            <div className="modal-content-premium animate-premium" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>Gestionar Vehículo</h3>
+              <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '32px' }}>Gestionar VehÃ­culo</h3>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
                  <div className="form-group">
@@ -280,7 +280,7 @@ export default function VehiclesPage() {
                    <textarea 
                      className="white-card" 
                      style={{ border: 'none', background: 'var(--bg-primary)', padding: '16px', width: '100%', fontSize: '13px', fontWeight: 700, height: '80px', marginTop: '16px' }} 
-                     placeholder="Razón del bloqueo..." 
+                     placeholder="RazÃ³n del bloqueo..." 
                      value={editingVehicle.blacklistReason || ''}
                      onChange={e => setEditingVehicle({...editingVehicle, blacklistReason: e.target.value})}
                    />
@@ -302,7 +302,7 @@ export default function VehiclesPage() {
             <div className="modal-overlay" onClick={() => !creating && setShowCreate(false)}>
                <div className="modal-content-premium animate-premium" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                     <h3 style={{ fontSize: '24px', fontWeight: 900 }}>Nuevo Vehículo</h3>
+                     <h3 style={{ fontSize: '24px', fontWeight: 900 }}>Nuevo VehÃ­culo</h3>
                      <button className="white-card" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} onClick={() => setShowCreate(false)}>
                         <X size={18} />
                      </button>
@@ -322,7 +322,7 @@ export default function VehiclesPage() {
                      <div className="form-group">
                         <label className="input-label">Tipo</label>
                         <select className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 800 }} value={newVehicle.type} onChange={(e) => setNewVehicle({ ...newVehicle, type: e.target.value })}>
-                           <option value="CAR">Automóvil</option>
+                           <option value="CAR">AutomÃ³vil</option>
                            <option value="MOTORCYCLE">Motocicleta</option>
                            <option value="VAN">Camioneta</option>
                         </select>
@@ -353,7 +353,7 @@ export default function VehiclesPage() {
                         <textarea
                            className="white-card"
                            style={{ border: 'none', background: 'var(--bg-primary)', padding: '16px', width: '100%', fontSize: '13px', fontWeight: 700, height: '80px', marginTop: '16px' }}
-                           placeholder="Razón del bloqueo..."
+                           placeholder="RazÃ³n del bloqueo..."
                            value={newVehicle.blacklistReason}
                            onChange={e => setNewVehicle({ ...newVehicle, blacklistReason: e.target.value })}
                         />
@@ -361,7 +361,7 @@ export default function VehiclesPage() {
                   </div>
 
                   <button className="btn-primary" style={{ width: '100%', height: '60px' }} onClick={() => void handleCreate()} disabled={creating || !newVehicle.plate.trim()}>
-                     {creating ? 'Creando…' : 'Crear Vehículo'}
+                     {creating ? 'Creandoâ€¦' : 'Crear VehÃ­culo'}
                   </button>
                </div>
             </div>
@@ -369,3 +369,4 @@ export default function VehiclesPage() {
     </div>
   );
 }
+
