@@ -254,7 +254,7 @@ export default function SubscriptionsPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo guardar la suscripcion');
+         toast.error('No se pudo guardar la suscripción');
       } finally {
          setSaving(false);
       }

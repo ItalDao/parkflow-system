@@ -15,14 +15,14 @@ export function AIPredictionWidget() {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
         });
         if (!res.ok) {
-          toast.error('No se pudo cargar el pronostico');
+          toast.error('No se pudo cargar el pronóstico');
           return;
         }
         const data = await res.json();
         setOccupancy(data.occupancyRate);
       } catch (err) {
         console.error(err);
-        toast.error('No se pudo cargar el pronostico');
+        toast.error('No se pudo cargar el pronóstico');
       }
       finally { setLoading(false); }
     };

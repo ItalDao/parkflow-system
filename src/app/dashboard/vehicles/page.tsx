@@ -65,12 +65,12 @@ export default function VehiclesPage() {
             setVehicles(await res.json());
          } else {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudieron cargar los vehiculos');
+            toast.error((data as { error?: string }).error || 'No se pudieron cargar los vehículos');
             setVehicles([]);
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar los vehiculos');
+         toast.error('No se pudieron cargar los vehículos');
       }
     finally { setLoading(false); }
   }, []);
@@ -97,11 +97,11 @@ export default function VehiclesPage() {
         fetchData();
          } else {
             const data = await res.json().catch(() => ({}));
-            toast.error((data as { error?: string }).error || 'No se pudo actualizar el vehiculo');
+            toast.error((data as { error?: string }).error || 'No se pudo actualizar el vehículo');
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo actualizar el vehiculo');
+         toast.error('No se pudo actualizar el vehículo');
       }
   };
 
@@ -138,7 +138,7 @@ export default function VehiclesPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo crear el vehiculo');
+         toast.error('No se pudo crear el vehículo');
       } finally {
          setCreating(false);
       }

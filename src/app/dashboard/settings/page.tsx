@@ -109,7 +109,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cargar la telemetria');
+         toast.error('No se pudo cargar la telemetría');
       }
    }, [router]);
 
