@@ -90,7 +90,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cargar la sede');
+         toast.error('Error de conexion');
       }
    }, [router]);
 
@@ -109,7 +109,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cargar la telemetría');
+         toast.error('Error de conexion');
       }
    }, [router]);
 
@@ -126,7 +126,7 @@ export default function SettingsPage() {
       if (res.ok) setRates(await res.json());
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar las tarifas');
+         toast.error('Error de conexion');
       }
   }, [router]);
 
@@ -168,7 +168,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo guardar la sede');
+         toast.error('Error de conexion');
       } finally {
          setSavingLot(false);
       }
@@ -189,7 +189,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo actualizar la tarifa');
+         toast.error('Error de conexion');
       }
     finally { setSaving(null); }
   };
@@ -211,7 +211,7 @@ export default function SettingsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo crear la tarifa');
+         toast.error('Error de conexion');
       }
   };
 

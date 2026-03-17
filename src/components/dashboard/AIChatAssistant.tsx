@@ -47,7 +47,7 @@ export function AIChatAssistant() {
       if (zonesRes.ok) setZones(await zonesRes.json());
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo cargar el contexto del asistente');
+      toast.error('Error de conexion');
     } finally {
       setLoadingContext(false);
     }

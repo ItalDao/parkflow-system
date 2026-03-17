@@ -175,7 +175,7 @@ export default function TicketsPage() {
       if (zonesRes.ok) setZones(await zonesRes.json());
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar los tickets');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
   }, [filter]);
@@ -230,7 +230,7 @@ export default function TicketsPage() {
              toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
          }
       } catch {
-         toast.error('No se pudo registrar la entrada');
+         toast.error('Error de conexion');
       }
     finally { setProcessing(false); }
   };
@@ -251,7 +251,7 @@ export default function TicketsPage() {
          setExitTicket(data[0] || null);
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo buscar el ticket');
+         toast.error('Error de conexion');
          setExitTicket(null);
       }
    };
@@ -271,7 +271,7 @@ export default function TicketsPage() {
             if (!cancelled) setQuote(data);
          } catch (err) {
             console.error(err);
-            toast.error('No se pudo calcular la tarifa');
+            toast.error('Error de conexion');
          }
       })();
       return () => {
@@ -313,7 +313,7 @@ export default function TicketsPage() {
              toast.error((d as { error?: string }).error || 'No se pudo registrar la salida');
          }
       } catch {
-         toast.error('No se pudo registrar la salida');
+         toast.error('Error de conexion');
       }
     finally { setProcessing(false); }
   };

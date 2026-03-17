@@ -194,7 +194,7 @@ export default function ShiftsPage() {
       if (histRes.ok) setHistory(await histRes.json());
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar los turnos');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
    }, [historyExpanded]);
@@ -222,7 +222,7 @@ export default function ShiftsPage() {
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo abrir el turno');
+         toast.error('Error de conexion');
       }
   };
 
@@ -242,7 +242,7 @@ export default function ShiftsPage() {
           setShowReportModal(true);
        } catch (err) {
           console.error(err);
-         toast.error('No se pudo cargar el reporte');
+         toast.error('Error de conexion');
        } finally {
           setReportLoading(false);
        }
@@ -282,7 +282,7 @@ export default function ShiftsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cerrar el turno');
+         toast.error('Error de conexion');
       } finally {
          setClosing(false);
       }

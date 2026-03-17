@@ -60,7 +60,7 @@ export default function NotificationsPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('No se pudieron cargar notificaciones');
+      toast.error('Error de conexion');
     }
     finally { setLoading(false); }
   };
@@ -80,7 +80,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo actualizar');
+      toast.error('Error de conexion');
     }
   };
 
@@ -98,7 +98,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo eliminar');
+      toast.error('Error de conexion');
     }
   };
 
@@ -117,7 +117,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo actualizar');
+      toast.error('Error de conexion');
     }
   };
 
@@ -139,7 +139,7 @@ export default function NotificationsPage() {
       fetchNotifications();
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo limpiar');
+      toast.error('Error de conexion');
     }
   };
 

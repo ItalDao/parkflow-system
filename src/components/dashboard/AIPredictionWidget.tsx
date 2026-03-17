@@ -22,7 +22,7 @@ export function AIPredictionWidget() {
         setOccupancy(data.occupancyRate);
       } catch (err) {
         console.error(err);
-        toast.error('No se pudo cargar el pronóstico');
+        toast.error('Error de conexion');
       }
       finally { setLoading(false); }
     };

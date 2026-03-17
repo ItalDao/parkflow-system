@@ -51,7 +51,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo cargar el dashboard');
+      toast.error('Error de conexion');
     }
     finally { setLoading(false); }
   }, [activeZoneId]);
@@ -85,7 +85,7 @@ export default function DashboardPage() {
         toast.error((data as { error?: string }).error || 'No se pudo registrar la entrada');
       }
     } catch {
-      toast.error('No se pudo registrar la entrada');
+      toast.error('Error de conexion');
     }
     finally { setProcessing(false); }
   };
@@ -106,7 +106,7 @@ export default function DashboardPage() {
         toast.error((d as { error?: string }).error || 'No se pudo procesar la salida');
       }
     } catch {
-      toast.error('No se pudo procesar la salida');
+      toast.error('Error de conexion');
     }
     finally { setProcessing(false); }
   };

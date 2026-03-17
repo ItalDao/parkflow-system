@@ -119,7 +119,7 @@ export default function SubscriptionsPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar las suscripciones');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
   }, []);
@@ -254,7 +254,7 @@ export default function SubscriptionsPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo guardar la suscripción');
+         toast.error('Error de conexion');
       } finally {
          setSaving(false);
       }
@@ -285,7 +285,7 @@ export default function SubscriptionsPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cancelar');
+         toast.error('Error de conexion');
       }
    };
 

@@ -45,7 +45,7 @@ export default function AuditPage() {
       if (res.ok) setLogs(await res.json());
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo cargar la auditoría');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
   }, []);

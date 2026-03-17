@@ -53,7 +53,7 @@ export default function ParkingMapPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('No se pudieron cargar las zonas');
+      toast.error('Error de conexion');
     }
     finally { setLoading(false); }
   }, [activeZoneId]);
@@ -103,7 +103,7 @@ export default function ParkingMapPage() {
       await fetchZones();
     } catch (err) {
       console.error(err);
-      toast.error('Error al registrar entrada');
+      toast.error('Error de conexion');
     } finally {
       setProcessing(false);
     }
@@ -128,7 +128,7 @@ export default function ParkingMapPage() {
       await fetchZones();
     } catch (err) {
       console.error(err);
-      toast.error('Error al procesar salida');
+      toast.error('Error de conexion');
     } finally {
       setProcessing(false);
     }

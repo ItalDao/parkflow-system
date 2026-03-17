@@ -108,7 +108,7 @@ export default function UsersPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar usuarios');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
   };
@@ -129,7 +129,7 @@ export default function UsersPage() {
          await fetchUsers(currentRole === 'SUPER_ADMIN' ? effective : undefined);
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar usuarios');
+         toast.error('Error de conexion');
          setLoading(false);
       }
    };
@@ -150,7 +150,7 @@ export default function UsersPage() {
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo actualizar el usuario');
+         toast.error('Error de conexion');
       }
   };
 
@@ -171,7 +171,7 @@ export default function UsersPage() {
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo crear el usuario');
+         toast.error('Error de conexion');
       }
   };
 
@@ -198,7 +198,7 @@ export default function UsersPage() {
              }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo eliminar');
+         toast.error('Error de conexion');
       }
   };
 

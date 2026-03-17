@@ -184,7 +184,7 @@ export default function ReportsPage() {
          if (bRes.ok) setBreakdown(await bRes.json());
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar los reportes');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
    }, [days]);
@@ -238,7 +238,7 @@ export default function ReportsPage() {
          URL.revokeObjectURL(url);
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo exportar');
+         toast.error('Error de conexion');
       }
    };
 

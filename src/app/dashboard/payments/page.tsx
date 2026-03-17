@@ -119,7 +119,7 @@ export default function PaymentsPage() {
         }
       } catch (err) {
         console.error(err);
-        toast.error('No se pudieron cargar los pagos');
+        toast.error('Error de conexion');
       }
       finally { setLoading(false); }
     })();

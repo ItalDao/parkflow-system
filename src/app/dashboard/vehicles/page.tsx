@@ -70,7 +70,7 @@ export default function VehiclesPage() {
          }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudieron cargar los vehículos');
+         toast.error('Error de conexion');
       }
     finally { setLoading(false); }
   }, []);
@@ -101,7 +101,7 @@ export default function VehiclesPage() {
       }
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo actualizar el vehículo');
+         toast.error('Error de conexion');
       }
   };
 
@@ -138,7 +138,7 @@ export default function VehiclesPage() {
          await fetchData();
       } catch (err) {
          console.error(err);
-         toast.error('No se pudo crear el vehículo');
+         toast.error('Error de conexion');
       } finally {
          setCreating(false);
       }
