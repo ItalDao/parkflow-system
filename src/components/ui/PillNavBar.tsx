@@ -9,17 +9,21 @@ import {
   Ticket, 
   Settings, 
   Bell, 
-  Search,
   LogOut,
   MessageSquare,
   Clock,
-  Activity
+  Activity,
+  Users,
+  Wallet,
+  FileSearch,
+  UserCircle2
 } from 'lucide-react';
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
+  roles?: Array<'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR'>;
 }
 
 const navItems: NavItem[] = [
@@ -27,8 +31,13 @@ const navItems: NavItem[] = [
   { href: '/dashboard/parking-map', label: 'Mapa', icon: <MapPin size={18} /> },
   { href: '/dashboard/tickets', label: 'Tickets', icon: <Ticket size={18} /> },
   { href: '/dashboard/shifts', label: 'Turnos', icon: <Clock size={18} /> },
-  { href: '/dashboard/reports', label: 'Reportes', icon: <Activity size={18} /> },
-  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={18} /> },
+  { href: '/dashboard/reports', label: 'Reportes', icon: <Activity size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/payments', label: 'Pagos', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/users', label: 'Usuarios', icon: <Users size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/subscriptions', label: 'Suscripciones', icon: <UserCircle2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/audit', label: 'Auditoría', icon: <FileSearch size={18} />, roles: ['SUPER_ADMIN'] },
+  { href: '/dashboard/settings', label: 'Settings', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 type NavbarUser = {
@@ -43,12 +52,8 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
 
   const role = String(user?.role || '').toUpperCase();
   const visibleNavItems = navItems.filter((item) => {
-    if (role === 'OPERATOR') {
-      // OPERATOR: no finanzas ni administración
-      if (item.href === '/dashboard/reports') return false;
-      if (item.href === '/dashboard/management') return false;
-    }
-    return true;
+    if (!item.roles || item.roles.length === 0) return true;
+    return item.roles.includes(role as 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR');
   });
 
   const roleLabel = (() => {
@@ -88,10 +93,10 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
       </nav>
 
       {/* User & Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <div className="navbar-actions">
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Link href="/dashboard/tickets" className="icon-btn-pill" title="Buscar">
-            <Search size={18} />
+          <Link href="/dashboard/profile" className="icon-btn-pill" title="Mi perfil">
+            <UserCircle2 size={18} />
           </Link>
           <Link href="/dashboard/messages" className="icon-btn-pill"><MessageSquare size={18} /></Link>
           <Link href="/dashboard/notifications" className="icon-btn-pill" title="Notificaciones">

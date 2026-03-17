@@ -96,6 +96,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Acceso denegado: Se requieren permisos de Admin' }, { status: 403 });
     }
 
+    if (resource === 'profile') {
+      const profile = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true,
+          createdAt: true,
+        },
+      });
+      if (!profile) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+      return NextResponse.json(profile);
+    }
+
     const requestedLotId = searchParams.get('parkingLotId');
     const parkingLotId = await resolveParkingLotIdForUser(user.userId, user.role, requestedLotId);
     if (requestedLotId && !parkingLotId) {
@@ -1653,6 +1672,64 @@ export async function PUT(request: NextRequest) {
       }
 
       return NextResponse.json({ error: 'ID o acción requerida' }, { status: 400 });
+    }
+
+    if (resource === 'profile') {
+      const firstName = String(data?.firstName || '').trim();
+      const lastName = String(data?.lastName || '').trim();
+      const phone = data?.phone ? String(data.phone).trim() : null;
+      const currentPassword = data?.currentPassword ? String(data.currentPassword) : null;
+      const newPassword = data?.newPassword ? String(data.newPassword) : null;
+
+      if (!firstName || !lastName) {
+        return NextResponse.json({ error: 'Nombre y apellido son requeridos' }, { status: 400 });
+      }
+
+      const me = await prisma.user.findUnique({ where: { id: tokenUser.userId } });
+      if (!me) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+
+      let nextPasswordHash: string | undefined;
+      if (newPassword) {
+        if (newPassword.length < 8) {
+          return NextResponse.json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' }, { status: 400 });
+        }
+        if (!currentPassword) {
+          return NextResponse.json({ error: 'Debes confirmar tu contraseña actual' }, { status: 400 });
+        }
+        const matches = await bcrypt.compare(currentPassword, me.password);
+        if (!matches) {
+          return NextResponse.json({ error: 'La contraseña actual no es correcta' }, { status: 400 });
+        }
+        nextPasswordHash = await bcrypt.hash(newPassword, 10);
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: tokenUser.userId },
+        data: {
+          firstName,
+          lastName,
+          phone,
+          ...(nextPasswordHash ? { password: nextPasswordHash } : {}),
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          isActive: true,
+        },
+      });
+
+      await createAuditLog(tokenUser.userId, 'UPDATE_PROFILE', 'User', tokenUser.userId, {
+        firstName,
+        lastName,
+        phone,
+        passwordChanged: Boolean(nextPasswordHash),
+      });
+
+      return NextResponse.json({ success: true, user: updated });
     }
 
     // Update subscription (cancel / renew / edit)

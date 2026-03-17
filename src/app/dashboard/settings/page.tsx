@@ -220,7 +220,7 @@ export default function SettingsPage() {
    if (loading) return <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
   return (
-    <div className="animate-premium" style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '32px', paddingTop: '10px' }}>
+   <div className="animate-premium" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', paddingTop: '10px' }}>
       
       {/* LEFT COLUMN: Main Configs */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -234,7 +234,7 @@ export default function SettingsPage() {
              <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>No hay sede asignada.</div>
            ) : (
              <>
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+               <div className="responsive-two-col" style={{ gap: '24px', marginBottom: '32px' }}>
                   <div className="form-group">
                      <label className="input-label" style={{ marginBottom: '10px' }}>Nombre de la Sede</label>
                      <input className="white-card" style={{ border: 'none', padding: '16px', width: '100%', fontSize: '14px', fontWeight: 700 }} value={lotDraft.name} onChange={e => setLotDraft({ ...lotDraft, name: e.target.value })} />
@@ -268,7 +268,7 @@ export default function SettingsPage() {
 
         {/* Rates Table */}
         <div className="glass-card" style={{ padding: '40px' }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '32px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '12px' }}>
                  <Banknote size={24} color="var(--accent-gold)" /> Tarifario Maestro
               </h3>
@@ -279,8 +279,8 @@ export default function SettingsPage() {
            
            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {rates.map(r => (
-                <div key={r.id} className="white-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div key={r.id} className="white-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: '220px', flex: '1 1 260px' }}>
                       <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                          {r.vehicleType === 'CAR' ? <Car size={24} color="var(--accent-gold)" /> : <Bike size={24} color="var(--accent-gold)" />}
                       </div>
@@ -289,7 +289,7 @@ export default function SettingsPage() {
                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>COBRO POR HORA FRACCIÓN</span>
                       </div>
                    </div>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
                       <div style={{ textAlign: 'right' }}>
                          <input type="number" className="white-card" style={{ width: '120px', border: 'none', textAlign: 'right', padding: '12px', fontSize: '16px', fontWeight: 900 }} value={r.price} onChange={e => setRates(rates.map(x => x.id === r.id ? { ...x, price: Number(e.target.value) } : x))} />
                       </div>

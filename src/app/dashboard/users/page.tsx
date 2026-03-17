@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import { 
   Search, 
@@ -60,6 +61,7 @@ const roleBadge: Record<string, { label: string; cls: string; desc: string }> = 
 };
 
 export default function UsersPage() {
+   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -77,10 +79,16 @@ export default function UsersPage() {
 
   useEffect(() => {
       const decoded = safeDecodeJwt(localStorage.getItem('accessToken'));
+     if ((decoded.role || 'OPERATOR') === 'OPERATOR') {
+       toast.error('Acceso restringido a administradores');
+       router.replace('/dashboard');
+       setLoading(false);
+       return;
+     }
       setRole(decoded.role || 'OPERATOR');
       void loadContext(decoded.role || 'OPERATOR');
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
    useEffect(() => () => {
       if (deleteTimer.current) clearTimeout(deleteTimer.current);
@@ -218,7 +226,7 @@ export default function UsersPage() {
     <div className="animate-premium" style={{ paddingTop: '10px' }}>
       
       {/* Role Hub */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
+      <div className="responsive-three-col" style={{ marginBottom: '32px' }}>
         {Object.entries(roleBadge).map(([role, { label, desc }]) => (
           <div key={role} className="glass-card" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -234,12 +242,12 @@ export default function UsersPage() {
       </div>
 
       {/* Header Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap', marginBottom: '32px' }}>
          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Gestión de Personal</h2>
             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>Control de acceso y roles operativos</span>
          </div>
-         <div style={{ display: 'flex', gap: '12px' }}>
+         <div className="responsive-toolbar" style={{ justifyContent: 'flex-end', flex: '1 1 420px' }}>
                   {canManageAll && lots.length > 0 && (
                      <div className="white-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <MapPin size={16} color="var(--accent-gold)" />
@@ -259,7 +267,7 @@ export default function UsersPage() {
                         </select>
                      </div>
                   )}
-            <div style={{ position: 'relative', width: '300px' }}>
+            <div className="responsive-search">
                <input className="white-card" style={{ border: 'none', padding: '12px 16px 12px 48px', width: '100%', fontSize: '13px', fontWeight: 700 }} placeholder="Buscar por nombre o email..." value={search} onChange={e => setSearch(e.target.value)} />
                <Search size={18} style={{ position: 'absolute', left: '16px', top: '12px', color: 'var(--text-muted)' }} />
             </div>
@@ -409,7 +417,7 @@ export default function UsersPage() {
                   <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '8px' }}>Editar Usuario</h3>
                   <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '20px' }}>{editingUser.email}</p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                  <div className="responsive-two-col" style={{ marginBottom: '16px' }}>
                      <div>
                         <label className="input-label">Nombre</label>
                         <input className="input-field" value={editingUser.firstName} onChange={e => setEditingUser({ ...editingUser, firstName: e.target.value })} />
@@ -420,7 +428,7 @@ export default function UsersPage() {
                      </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                  <div className="responsive-two-col" style={{ marginBottom: '16px' }}>
                      <div>
                         <label className="input-label">Rol</label>
                         <select
