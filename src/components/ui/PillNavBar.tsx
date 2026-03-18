@@ -16,24 +16,27 @@ import {
   Users,
   Wallet,
   FileSearch,
-  UserCircle2
+  UserCircle2,
+  ChevronDown
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
   roles?: Array<'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR'>;
+  primary?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { href: '/dashboard/parking-map', label: 'Mapa', icon: <MapPin size={18} /> },
-  { href: '/dashboard/tickets', label: 'Tickets', icon: <Ticket size={18} /> },
-  { href: '/dashboard/shifts', label: 'Turnos', icon: <Clock size={18} /> },
-  { href: '/dashboard/reports', label: 'Reportes', icon: <Activity size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { href: '/dashboard/payments', label: 'Pagos', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, primary: true },
+  { href: '/dashboard/parking-map', label: 'Mapa', icon: <MapPin size={18} />, primary: true },
+  { href: '/dashboard/tickets', label: 'Tickets', icon: <Ticket size={18} />, primary: true },
+  { href: '/dashboard/shifts', label: 'Turnos', icon: <Clock size={18} />, primary: true },
+  { href: '/dashboard/reports', label: 'Reportes', icon: <Activity size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'], primary: true },
+  { href: '/dashboard/payments', label: 'Pagos', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'], primary: true },
+  { href: '/dashboard/management', label: 'Gestión', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'], primary: true },
   { href: '/dashboard/users', label: 'Usuarios', icon: <Users size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { href: '/dashboard/subscriptions', label: 'Suscripciones', icon: <UserCircle2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { href: '/dashboard/audit', label: 'Auditoría', icon: <FileSearch size={18} />, roles: ['SUPER_ADMIN'] },
@@ -49,12 +52,32 @@ type NavbarUser = {
 
 export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogout: () => void }) {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
 
   const role = String(user?.role || '').toUpperCase();
   const visibleNavItems = navItems.filter((item) => {
     if (!item.roles || item.roles.length === 0) return true;
     return item.roles.includes(role as 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR');
   });
+  const primaryNavItems = visibleNavItems.filter((item) => item.primary);
+  const secondaryNavItems = visibleNavItems.filter((item) => !item.primary);
+  const secondaryActive = secondaryNavItems.some((item) => pathname === item.href);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const onClickOutside = (evt: MouseEvent) => {
+      if (!moreRef.current) return;
+      if (!moreRef.current.contains(evt.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onClickOutside);
+    return () => window.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   const roleLabel = (() => {
     const role = String(user?.role || '').toUpperCase();
@@ -65,7 +88,7 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
   })();
 
   return (
-    <header className="navbar-pill animate-premium">
+    <header className="navbar-pill navbar-future animate-premium">
       {/* Brand/Logo */}
       <div className="navbar-pill__brand">
         <div className="navbar-pill__logo">
@@ -76,7 +99,7 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
 
       {/* Navigation Links */}
       <nav className="nav-pill-group" aria-label="Navegación principal">
-        {visibleNavItems.map((item) => {
+        {primaryNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link 
@@ -92,9 +115,35 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
         })}
       </nav>
 
+      {secondaryNavItems.length > 0 && (
+        <div ref={moreRef} className={`nav-more-group ${moreOpen ? 'open' : ''} navbar-more-slot`}>
+          <button
+            type="button"
+            className={`nav-link-pill nav-more-btn ${secondaryActive ? 'active' : ''}`}
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+          >
+            <span>Más</span>
+            <ChevronDown size={14} />
+          </button>
+          <div className="nav-more-menu" role="menu">
+            {secondaryNavItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link key={item.href} href={item.href} className={`nav-more-item ${isActive ? 'active' : ''}`} role="menuitem">
+                  {item.icon}
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* User & Actions */}
       <div className="navbar-actions">
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="navbar-quick-actions" style={{ display: 'flex', gap: '10px' }}>
           <Link href="/dashboard/profile" className="icon-btn-pill" title="Mi perfil">
             <UserCircle2 size={18} />
           </Link>
@@ -104,16 +153,12 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
           </Link>
         </div>
 
-        <div style={{ width: '1px', height: '24px', background: 'rgba(0,0,0,0.1)' }} />
+        <div className="navbar-separator" style={{ width: '1px', height: '24px', background: 'rgba(0,0,0,0.1)' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '13px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {user?.firstName} {user?.lastName}
-            </div>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>
-              {roleLabel}
-            </div>
+        <div className="navbar-user-block" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="navbar-user-meta">
+            <div className="navbar-user-name">{user?.firstName || 'Usuario'}</div>
+            <div className="navbar-user-role">{roleLabel}</div>
           </div>
           <div style={{ position: 'relative' }}>
              <div style={{ 
@@ -132,9 +177,10 @@ export function PillNavBar({ user, onLogout }: { user: NavbarUser | null; onLogo
           </div>
           <button 
             onClick={onLogout}
+            className="icon-btn-pill"
+            title="Cerrar sesión"
             style={{ 
-              background: 'none', border: 'none', color: 'var(--accent-danger)', 
-              cursor: 'pointer', padding: '6px' 
+              color: 'var(--accent-danger)'
             }}
           >
             <LogOut size={20} />
