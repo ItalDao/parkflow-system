@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/users', label: 'Usuarios', icon: <Users size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { href: '/dashboard/subscriptions', label: 'Suscripciones', icon: <UserCircle2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { href: '/dashboard/audit', label: 'Auditoría', icon: <FileSearch size={18} />, roles: ['SUPER_ADMIN'] },
-  { href: '/dashboard/settings', label: 'Settings', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { href: '/dashboard/settings', label: 'Configuración', icon: <Settings size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 type NavbarUser = {

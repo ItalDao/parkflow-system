@@ -91,6 +91,25 @@ Resultado esperado:
 - Stripe, notificaciones reales (email/SMS/push), Redis, OCR, API pública/webhooks.
 - Storage S3/R2, PWA, i18n, testing E2E completo.
 
+### Mapa de faltantes por prioridad (real)
+
+| Prioridad | Módulo | Estado actual | Siguiente entrega concreta |
+|---|---|---|---|
+| Alta | Pagos digitales (Stripe) | Solo caja local | Endpoint de checkout + webhook `payment.completed` |
+| Alta | Notificaciones reales | Solo in-app | Email transaccional + plantilla de vencimiento |
+| Alta | Redis seguridad | Sin rate limit server-side | Rate limit en login y endpoints sensibles |
+| Media | API pública / Webhooks | No expuesto | `/api/v1` con API key y eventos básicos |
+| Media | OCR de placas | Manual | Captura placa + parser OCR fallback |
+| Media | Storage S3/R2 | Local | Subida de adjuntos de ticket/factura |
+| Media | PWA/Mobile | Parcial | Manifest + offline cache de vistas operativas |
+| Baja | i18n | Solo ES | Estructura de diccionario EN/PT |
+| Baja | E2E completo | Smoke manual | Suite Playwright para login+ticket+shift |
+
+### Alcance implementado vs propuesto
+
+- Implementado: módulos operativos core (dashboard, mapa, tickets, turnos, pagos caja, reportes, gestión, usuarios, auditoría, perfil).
+- Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
+
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise
 
 ---

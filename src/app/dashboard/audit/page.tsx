@@ -14,6 +14,26 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+
+type JwtPayload = { role?: string; userId?: string };
+
+function safeDecodeJwt(token: string | null): JwtPayload {
+   try {
+      if (!token) return {};
+      const part = token.split('.')[1];
+      if (!part) return {};
+      let normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4;
+      if (pad) normalized += '='.repeat(4 - pad);
+      const decoded = atob(normalized);
+      return JSON.parse(decoded);
+   } catch {
+      return {};
+   }
+}
+
+type ActionFilter = 'ALL' | 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN';
 
 type Trend = { pctLabel: string; up: boolean; hasPrev: boolean };
 
@@ -33,22 +53,51 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
    const [showFilters, setShowFilters] = useState(false);
-   const [actionFilter, setActionFilter] = useState<'ALL' | 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN'>('ALL');
+   const [actionFilter, setActionFilter] = useState<ActionFilter>('ALL');
    const [entityFilter, setEntityFilter] = useState('');
    const [days, setDays] = useState<7 | 30 | 90>(30);
+   const router = useRouter();
 
   const fetchLogs = useCallback(async () => {
     try {
+         const decoded = safeDecodeJwt(localStorage.getItem('accessToken'));
+         const role = decoded.role || 'OPERATOR';
+         if (role === 'OPERATOR') {
+            toast.error('Acceso denegado: no tienes permisos para auditoría');
+            router.replace('/dashboard');
+            return;
+         }
+
       const res = await fetch('/api/dashboard?resource=audit', {
         headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
-      if (res.ok) setLogs(await res.json());
+         if (res.status === 401) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            router.replace('/');
+            return;
+         }
+
+         if (res.status === 403) {
+            toast.error('Acceso denegado: se requieren permisos de administrador');
+            router.replace('/dashboard');
+            return;
+         }
+
+         if (res.ok) {
+            setLogs(await res.json());
+         } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo cargar auditoría');
+            setLogs([]);
+         }
       } catch (err) {
          console.error(err);
          toast.error('Error de conexión');
       }
     finally { setLoading(false); }
-  }, []);
+   }, [router]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -141,7 +190,7 @@ export default function AuditPage() {
                         <select
                            className="white-card"
                            value={actionFilter}
-                           onChange={(e) => setActionFilter(e.target.value as any)}
+                           onChange={(e) => setActionFilter(e.target.value as ActionFilter)}
                            style={{ border: 'none', padding: '12px 14px', width: '100%', fontWeight: 800 }}
                         >
                            <option value="ALL">Todas</option>
