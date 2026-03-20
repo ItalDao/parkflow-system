@@ -8,6 +8,8 @@
     RL_TEST_EMAIL=ratelimit-test@parkingos.local
     RL_TEST_PASSWORD=invalid-password
     DASHBOARD_TOKEN=<jwt>
+    DASHBOARD_TEST_EMAIL=<email para login>
+    DASHBOARD_TEST_PASSWORD=<password para login>
     RL_SERVER_WAIT_MS=45000
     RL_SERVER_POLL_MS=1000
     RL_AUTOSTART_SERVER=false
@@ -24,6 +26,8 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const RL_TEST_EMAIL = process.env.RL_TEST_EMAIL || 'ratelimit-test@parkingos.local';
 const RL_TEST_PASSWORD = process.env.RL_TEST_PASSWORD || 'invalid-password';
 const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
+const DASHBOARD_TEST_EMAIL = process.env.DASHBOARD_TEST_EMAIL || '';
+const DASHBOARD_TEST_PASSWORD = process.env.DASHBOARD_TEST_PASSWORD || '';
 const RL_SERVER_WAIT_MS = Number(process.env.RL_SERVER_WAIT_MS || 45_000);
 const RL_SERVER_POLL_MS = Number(process.env.RL_SERVER_POLL_MS || 1_000);
 const RL_AUTOSTART_SERVER = /^(1|true|yes)$/i.test(String(process.env.RL_AUTOSTART_SERVER || 'false'));
@@ -33,6 +37,7 @@ const RL_REPORT_FILE = process.env.RL_REPORT_FILE || '';
 
 const results = [];
 let managedDevServer = null;
+let runtimeDashboardToken = DASHBOARD_TOKEN;
 
 function nowMs() {
   return Date.now();
@@ -236,6 +241,27 @@ async function runCase(name, fn) {
   }
 }
 
+async function resolveDashboardToken() {
+  if (runtimeDashboardToken) return runtimeDashboardToken;
+
+  if (!DASHBOARD_TEST_EMAIL || !DASHBOARD_TEST_PASSWORD) {
+    return null;
+  }
+
+  const { response, json } = await postJson('/api/auth', {
+    action: 'login',
+    email: DASHBOARD_TEST_EMAIL,
+    password: DASHBOARD_TEST_PASSWORD,
+  });
+
+  if (response.status !== 200 || !json?.accessToken) {
+    return null;
+  }
+
+  runtimeDashboardToken = json.accessToken;
+  return runtimeDashboardToken;
+}
+
 async function testAuthRateLimit() {
   console.log('== Auth rate limit smoke ==');
 
@@ -269,8 +295,9 @@ async function testAuthRateLimit() {
 }
 
 async function testDashboardRateLimit() {
-  if (!DASHBOARD_TOKEN) {
-    return 'SKIP: set DASHBOARD_TOKEN to enable dashboard throttle validation';
+  const token = await resolveDashboardToken();
+  if (!token) {
+    return 'SKIP: set DASHBOARD_TOKEN or DASHBOARD_TEST_EMAIL/DASHBOARD_TEST_PASSWORD to enable dashboard throttle validation';
   }
 
   console.log('== Dashboard rate limit smoke ==');
@@ -285,7 +312,7 @@ async function testDashboardRateLimit() {
         resource: 'open-shift',
         initialCash: 0,
       },
-      { Authorization: `Bearer ${DASHBOARD_TOKEN}` }
+      { Authorization: `Bearer ${token}` }
     );
 
     const headerRetry = response.headers.get('retry-after');
