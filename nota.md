@@ -97,7 +97,7 @@ Resultado esperado:
 |---|---|---|---|
 | Alta | Pagos digitales (Stripe) | Solo caja local | Endpoint de checkout + webhook `payment.completed` |
 | Alta | Notificaciones reales | Solo in-app | Email transaccional + plantilla de vencimiento |
-| Alta | Redis seguridad | Sin rate limit server-side | Rate limit en login y endpoints sensibles |
+| Alta | Redis seguridad | Rate limit in-memory en login y operaciones críticas | Migrar a rate limit distribuido con Redis + políticas por sede |
 | Media | API pública / Webhooks | No expuesto | `/api/v1` con API key y eventos básicos |
 | Media | OCR de placas | Manual | Captura placa + parser OCR fallback |
 | Media | Storage S3/R2 | Local | Subida de adjuntos de ticket/factura |
