@@ -769,13 +769,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(lot ? [lot] : []);
     }
 
-    // Audit logs (SUPER_ADMIN only)
+    // Audit logs (SUPER_ADMIN full, ADMIN scoped to own lot)
     if (resource === 'audit') {
-      if (user.role !== 'SUPER_ADMIN') return NextResponse.json({ error: 'Prohibido' }, { status: 403 });
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Prohibido' }, { status: 403 });
+      }
+
+      if (user.role === 'SUPER_ADMIN') {
+        const logs = await prisma.auditLog.findMany({
+          include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+        });
+        return NextResponse.json(logs);
+      }
+
+      const adminLotId = await resolveParkingLotIdForUser(user.userId, user.role);
+      if (!adminLotId) return NextResponse.json([]);
+
+      const lotUsers = await prisma.user.findMany({
+        where: {
+          OR: [
+            { assignedLotId: adminLotId },
+            { parkingLot: { is: { id: adminLotId } } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      const userIds = Array.from(new Set([user.userId, ...lotUsers.map((u) => u.id)]));
       const logs = await prisma.auditLog.findMany({
-        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+        where: { userId: { in: userIds } },
+        include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 200,
       });
       return NextResponse.json(logs);
     }

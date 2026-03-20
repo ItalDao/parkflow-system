@@ -277,21 +277,21 @@ No tiene cuenta en el sistema. Su interacción es 100% a través del operador.
 
 | Funcionalidad | SUPER_ADMIN | ADMIN | OPERATOR | CUSTOMER |
 |---|:---:|:---:|:---:|:---:|
-| Crear/eliminar sedes |  |  |  |  |
-| Configurar sede (zonas, espacios) |  |  |  |  |
-| Gestionar usuarios |  |  (solo operadores) |  |  |
-| Definir tarifas globales |  |  |  |  |
-| Ajustar tarifas de sede |  |  |  |  |
-| Registrar entrada/salida |  |  |  |  |
-| Cobrar en caja |  |  |  |  |
-| Ver mapa de espacios |  |  |  |  |
-| Gestionar turnos |  |  |  (solo el propio) |  |
-| Ver reportes financieros |  |  (su sede) |  |  |
-| Ver auditoría |  |  (su sede) |  |  |
-| Pagar online |  |  |  |  |
-| Ver sus tickets/facturas |  |  |  |  |
-| Gestionar sus vehículos |  |  |  |  |
-| Renovar mensualidad |  |  |  |  |
+| Crear/eliminar sedes | SI | NO | NO | NO |
+| Configurar sede (zonas, espacios) | SI | SI | NO | NO |
+| Gestionar usuarios | SI | SI (solo operadores) | NO | NO |
+| Definir tarifas globales | SI | NO | NO | NO |
+| Ajustar tarifas de sede | SI | SI | NO | NO |
+| Registrar entrada/salida | SI | SI | SI | NO |
+| Cobrar en caja | SI | SI | SI | NO |
+| Ver mapa de espacios | SI | SI | SI | NO |
+| Gestionar turnos | SI | SI | SI (solo el propio) | NO |
+| Ver reportes financieros | SI | SI (su sede) | NO | NO |
+| Ver auditoría | SI | SI (su sede) | NO | NO |
+| Pagar online | NO | NO | NO | SI |
+| Ver sus tickets/facturas | NO | NO | NO | SI |
+| Gestionar sus vehículos | NO | NO | NO | SI |
+| Renovar mensualidad | NO | NO | NO | SI |
 
 ---
 
