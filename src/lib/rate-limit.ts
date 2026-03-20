@@ -1,3 +1,5 @@
+import Redis from 'ioredis';
+
 export type RateLimitRule = {
   windowMs: number;
   maxAttempts: number;
@@ -16,13 +18,26 @@ export type RateLimitResult =
   | { blocked: true; retryAfterSec: number };
 
 export interface RateLimiterProvider {
-  checkAndHit(subject: string, action: string): RateLimitResult;
-  clear(subject: string, action: string): void;
+  checkAndHit(subject: string, action: string): Promise<RateLimitResult>;
+  clear(subject: string, action: string): Promise<void>;
 }
 
 type RateLimiterBackend = 'memory' | 'redis';
 
 let warnedRedisFallback = false;
+let redisClient: Redis | null = null;
+
+function getRedisClient(): Redis | null {
+  if (redisClient) return redisClient;
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  redisClient = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    enableReadyCheck: true,
+    lazyConnect: true,
+  });
+  return redisClient;
+}
 
 export class InMemoryRateLimiter implements RateLimiterProvider {
   private readonly store = new Map<string, RateLimitEntry>();
@@ -32,7 +47,7 @@ export class InMemoryRateLimiter implements RateLimiterProvider {
     private readonly staleMs = 30 * 60_000
   ) {}
 
-  checkAndHit(subject: string, action: string): RateLimitResult {
+  async checkAndHit(subject: string, action: string): Promise<RateLimitResult> {
     const rule = this.rules[action];
     if (!rule) return { blocked: false };
 
@@ -66,7 +81,7 @@ export class InMemoryRateLimiter implements RateLimiterProvider {
     return { blocked: false };
   }
 
-  clear(subject: string, action: string): void {
+  async clear(subject: string, action: string): Promise<void> {
     this.store.delete(this.key(subject, action));
   }
 
@@ -83,6 +98,49 @@ export class InMemoryRateLimiter implements RateLimiterProvider {
   }
 }
 
+export class RedisRateLimiter implements RateLimiterProvider {
+  constructor(private readonly redis: Redis, private readonly rules: Record<string, RateLimitRule>) {}
+
+  async checkAndHit(subject: string, action: string): Promise<RateLimitResult> {
+    const rule = this.rules[action];
+    if (!rule) return { blocked: false };
+
+    const blockKey = this.blockKey(subject, action);
+    const attemptsKey = this.attemptsKey(subject, action);
+
+    const blockTtl = await this.redis.ttl(blockKey);
+    if (blockTtl > 0) {
+      return { blocked: true, retryAfterSec: blockTtl };
+    }
+
+    const attempts = await this.redis.incr(attemptsKey);
+    if (attempts === 1) {
+      await this.redis.expire(attemptsKey, Math.max(1, Math.ceil(rule.windowMs / 1000)));
+    }
+
+    const shouldBlock = rule.blockOnEqual ? attempts >= rule.maxAttempts : attempts > rule.maxAttempts;
+    if (shouldBlock) {
+      const retryAfterSec = Math.max(1, Math.ceil(rule.blockMs / 1000));
+      await this.redis.multi().set(blockKey, '1', 'EX', retryAfterSec).del(attemptsKey).exec();
+      return { blocked: true, retryAfterSec };
+    }
+
+    return { blocked: false };
+  }
+
+  async clear(subject: string, action: string): Promise<void> {
+    await this.redis.del(this.attemptsKey(subject, action), this.blockKey(subject, action));
+  }
+
+  private attemptsKey(subject: string, action: string) {
+    return `rl:attempt:${action}:${subject}`;
+  }
+
+  private blockKey(subject: string, action: string) {
+    return `rl:block:${action}:${subject}`;
+  }
+}
+
 export function createRateLimiter(
   rules: Record<string, RateLimitRule>,
   options?: { staleMs?: number; backend?: RateLimiterBackend }
@@ -90,9 +148,13 @@ export function createRateLimiter(
   const backend = options?.backend ?? ((process.env.RATE_LIMIT_BACKEND as RateLimiterBackend | undefined) || 'memory');
 
   if (backend === 'redis') {
+    const redis = getRedisClient();
+    if (redis) {
+      return new RedisRateLimiter(redis, rules);
+    }
     if (!warnedRedisFallback) {
       warnedRedisFallback = true;
-      console.warn('[rate-limit] RATE_LIMIT_BACKEND=redis requested, but Redis provider is not configured yet. Falling back to memory.');
+      console.warn('[rate-limit] RATE_LIMIT_BACKEND=redis requested, but REDIS_URL is missing. Falling back to memory.');
     }
     return new InMemoryRateLimiter(rules, options?.staleMs);
   }

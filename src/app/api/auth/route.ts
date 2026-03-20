@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       const clientIp = getClientIp(request);
       const clientIpHash = hashIp(clientIp);
       const throttleSubject = `${clientIp}:${normalizedEmail}`;
-      const throttleResult = loginRateLimiter.checkAndHit(throttleSubject, LOGIN_ACTION);
+      const throttleResult = await loginRateLimiter.checkAndHit(throttleSubject, LOGIN_ACTION);
       if (throttleResult.blocked) {
         const retryAfter = throttleResult.retryAfterSec;
         const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         data: { failedAttempts: 0, isBlocked: false, blockedUntil: null, lastLoginAt: new Date() },
       });
 
-      loginRateLimiter.clear(throttleSubject, LOGIN_ACTION);
+      await loginRateLimiter.clear(throttleSubject, LOGIN_ACTION);
 
       const accessToken = generateAccessToken({ userId: user.id, role: user.role });
       const refreshToken = generateRefreshToken({ userId: user.id });

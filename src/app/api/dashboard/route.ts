@@ -977,7 +977,7 @@ export async function POST(request: NextRequest) {
     const { resource } = body;
 
     if (typeof resource === 'string' && ACTION_THROTTLE_RULES[resource]) {
-      const t = actionRateLimiter.checkAndHit(tokenUser.userId, resource);
+      const t = await actionRateLimiter.checkAndHit(tokenUser.userId, resource);
       if (t.blocked) {
         await createAuditLog(tokenUser.userId, 'RATE_LIMITED_ACTION', 'DashboardResource', resource, {
           resource,
