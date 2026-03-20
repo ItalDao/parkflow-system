@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: ["main", "master"]
@@ -25,7 +28,6 @@ jobs:
           --health-retries 10
 
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parkingos?schema=public
       JWT_SECRET: ci-jwt-secret
       JWT_REFRESH_SECRET: ci-refresh-secret
@@ -51,6 +53,9 @@ jobs:
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+
+      - name: Sync schema for smoke runtime
+        run: npx prisma db push --skip-generate
 
       - name: Build
         run: npm run build
