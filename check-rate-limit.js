@@ -8,6 +8,8 @@
     RL_TEST_EMAIL=ratelimit-test@parkingos.local
     RL_TEST_PASSWORD=invalid-password
     DASHBOARD_TOKEN=<jwt>
+    RL_SERVER_WAIT_MS=45000
+    RL_SERVER_POLL_MS=1000
     RL_REPORT_FORMAT=text|json|junit
     RL_REPORT_FILE=./artifacts/rate-limit-report.json
 */
@@ -19,6 +21,8 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const RL_TEST_EMAIL = process.env.RL_TEST_EMAIL || 'ratelimit-test@parkingos.local';
 const RL_TEST_PASSWORD = process.env.RL_TEST_PASSWORD || 'invalid-password';
 const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
+const RL_SERVER_WAIT_MS = Number(process.env.RL_SERVER_WAIT_MS || 45_000);
+const RL_SERVER_POLL_MS = Number(process.env.RL_SERVER_POLL_MS || 1_000);
 const RL_REPORT_FORMAT = String(process.env.RL_REPORT_FORMAT || 'text').toLowerCase();
 const RL_REPORT_FILE = process.env.RL_REPORT_FILE || '';
 
@@ -109,6 +113,34 @@ function printTextSummary() {
 
   console.log('== Summary ==');
   console.log(`passed=${passed} failed=${failed} skipped=${skipped} total=${total}`);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForServer() {
+  const started = nowMs();
+  let attempts = 0;
+
+  while (nowMs() - started <= RL_SERVER_WAIT_MS) {
+    attempts += 1;
+    try {
+      const response = await fetch(`${BASE_URL}/`, { method: 'GET' });
+      if (response.status >= 200 && response.status < 600) {
+        console.log(`Server reachable at ${BASE_URL} after ${attempts} probe(s).`);
+        return;
+      }
+    } catch {
+      // keep polling until timeout
+    }
+
+    await sleep(RL_SERVER_POLL_MS);
+  }
+
+  throw new Error(
+    `Server not reachable at ${BASE_URL} after ${RL_SERVER_WAIT_MS}ms. Start the app (npm run dev) or set BASE_URL.`
+  );
 }
 
 async function postJson(pathname, payload, headers = {}) {
@@ -246,6 +278,8 @@ function emitReport() {
 
 async function main() {
   console.log(`Running against ${BASE_URL}`);
+
+  await waitForServer();
 
   await runCase('auth: returns 429 with Retry-After', testAuthRateLimit);
   await runCase('dashboard: returns 429 with Retry-After', testDashboardRateLimit);
