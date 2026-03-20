@@ -108,6 +108,7 @@ Resultado esperado:
 ### Alcance implementado vs propuesto
 
 - Implementado: módulos operativos core (dashboard, mapa, tickets, turnos, pagos caja, reportes, gestión, usuarios, auditoría, perfil).
+- Implementado: hardening activo en API (rate limit in-memory en login y operaciones críticas con 429/Retry-After, auditoría de bloqueos y validación estricta de sede en cierres/salidas).
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise

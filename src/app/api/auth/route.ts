@@ -39,9 +39,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { action, email, password, firstName, lastName, phone, role } = body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     if (action === 'register') {
-      const existing = await prisma.user.findUnique({ where: { email } });
+      if (!normalizedEmail || !password) {
+        return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (existing) {
         return NextResponse.json({ error: 'El email ya está registrado' }, { status: 400 });
       }
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
       const hashedPassword = await hashPassword(password);
       const user = await prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           password: hashedPassword,
           firstName,
           lastName,
@@ -81,7 +86,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'login') {
-      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (!normalizedEmail || !password) {
+        return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
+      }
+
       const throttleKey = getThrottleKey(getClientIp(request), normalizedEmail);
       const currentThrottle = loginThrottles.get(throttleKey);
       if (currentThrottle?.blockedUntil && currentThrottle.blockedUntil > now) {
@@ -92,7 +100,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (!user) {
         const prev = loginThrottles.get(throttleKey);
         const resetByWindow = !prev || now - prev.lastSeen > LOGIN_WINDOW_MS;

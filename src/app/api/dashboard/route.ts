@@ -1029,6 +1029,10 @@ export async function POST(request: NextRequest) {
     if (typeof resource === 'string' && ACTION_THROTTLE_RULES[resource]) {
       const t = checkAndHitActionThrottle(tokenUser.userId, resource);
       if (t.blocked) {
+        await createAuditLog(tokenUser.userId, 'RATE_LIMITED_ACTION', 'DashboardResource', resource, {
+          resource,
+          retryAfterSec: t.retryAfterSec,
+        });
         return NextResponse.json(
           { error: `Demasiadas operaciones en poco tiempo para ${resource}. Intenta de nuevo en ${t.retryAfterSec}s.` },
           { status: 429, headers: { 'Retry-After': String(t.retryAfterSec) } }
@@ -1134,6 +1138,10 @@ export async function POST(request: NextRequest) {
 
       if (!ticket || ticket.status !== 'ACTIVE') {
         return NextResponse.json({ error: 'Ticket no encontrado o ya procesado' }, { status: 400 });
+      }
+
+      if (tokenUser.role !== 'SUPER_ADMIN' && contextLotId && ticket.parkingLotId !== contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
       }
 
       const parkingLot = await prisma.parkingLot.findUnique({ where: { id: ticket.parkingLotId } });
@@ -1281,6 +1289,9 @@ export async function POST(request: NextRequest) {
 
       const existing = await prisma.shift.findUnique({ where: { id: shiftId } });
       if (!existing) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 });
+      if (tokenUser.role !== 'SUPER_ADMIN' && contextLotId && existing.parkingLotId !== contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
       if (tokenUser.role === 'OPERATOR' && existing.operatorId !== tokenUser.userId) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
