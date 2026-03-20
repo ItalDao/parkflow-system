@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 import { getHashedClientIp } from '@/lib/security';
-import { InMemoryRateLimiter, RateLimitRule } from '@/lib/rate-limit';
+import { createRateLimiter, RateLimitRule } from '@/lib/rate-limit';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -14,7 +14,7 @@ const ACTION_THROTTLE_RULES: Record<string, RateLimitRule> = {
   'open-shift': { windowMs: 5 * 60_000, maxAttempts: 3, blockMs: 5 * 60_000 },
   'close-shift': { windowMs: 5 * 60_000, maxAttempts: 3, blockMs: 5 * 60_000 },
 };
-const actionRateLimiter = new InMemoryRateLimiter(ACTION_THROTTLE_RULES);
+const actionRateLimiter = createRateLimiter(ACTION_THROTTLE_RULES);
 
 function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');

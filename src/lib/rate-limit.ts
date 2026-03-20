@@ -15,7 +15,16 @@ export type RateLimitResult =
   | { blocked: false }
   | { blocked: true; retryAfterSec: number };
 
-export class InMemoryRateLimiter {
+export interface RateLimiterProvider {
+  checkAndHit(subject: string, action: string): RateLimitResult;
+  clear(subject: string, action: string): void;
+}
+
+type RateLimiterBackend = 'memory' | 'redis';
+
+let warnedRedisFallback = false;
+
+export class InMemoryRateLimiter implements RateLimiterProvider {
   private readonly store = new Map<string, RateLimitEntry>();
 
   constructor(
@@ -72,4 +81,21 @@ export class InMemoryRateLimiter {
       }
     }
   }
+}
+
+export function createRateLimiter(
+  rules: Record<string, RateLimitRule>,
+  options?: { staleMs?: number; backend?: RateLimiterBackend }
+): RateLimiterProvider {
+  const backend = options?.backend ?? ((process.env.RATE_LIMIT_BACKEND as RateLimiterBackend | undefined) || 'memory');
+
+  if (backend === 'redis') {
+    if (!warnedRedisFallback) {
+      warnedRedisFallback = true;
+      console.warn('[rate-limit] RATE_LIMIT_BACKEND=redis requested, but Redis provider is not configured yet. Falling back to memory.');
+    }
+    return new InMemoryRateLimiter(rules, options?.staleMs);
+  }
+
+  return new InMemoryRateLimiter(rules, options?.staleMs);
 }

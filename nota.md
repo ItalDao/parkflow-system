@@ -110,6 +110,7 @@ Resultado esperado:
 - Implementado: módulos operativos core (dashboard, mapa, tickets, turnos, pagos caja, reportes, gestión, usuarios, auditoría, perfil).
 - Implementado: hardening activo en API (rate limit in-memory en login y operaciones críticas con 429/Retry-After, auditoría de bloqueos/fallos/exitos de login con IP anonimizada por hash y validación estricta de sede en cierres/salidas).
 - Implementado: capa reusable de rate limiting in-memory compartida entre auth y dashboard, lista para migración incremental a backend distribuido (Redis).
+- Implementado: selector de backend para rate limiting por entorno (`RATE_LIMIT_BACKEND`), con fallback seguro a memory cuando Redis no está cableado aún.
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise

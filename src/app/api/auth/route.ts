@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, comparePassword, generateAccessToken, generateRefreshToken } from '@/lib/auth';
 import { getClientIp, hashIp } from '@/lib/security';
-import { InMemoryRateLimiter } from '@/lib/rate-limit';
+import { createRateLimiter } from '@/lib/rate-limit';
 
 const LOGIN_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const LOGIN_MAX_ATTEMPTS = 8;
 const LOGIN_BLOCK_MS = 10 * 60 * 1000; // 10 minutes
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOGIN_ACTION = 'login';
-const loginRateLimiter = new InMemoryRateLimiter(
+const loginRateLimiter = createRateLimiter(
   {
     [LOGIN_ACTION]: {
       windowMs: LOGIN_WINDOW_MS,
@@ -18,7 +18,7 @@ const loginRateLimiter = new InMemoryRateLimiter(
       blockOnEqual: true,
     },
   },
-  LOGIN_WINDOW_MS * 3
+  { staleMs: LOGIN_WINDOW_MS * 3 }
 );
 
 async function createAuthAuditLog(userId: string, action: string, ipHash?: string, details?: unknown) {
