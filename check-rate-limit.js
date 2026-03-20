@@ -10,6 +10,7 @@
     DASHBOARD_TOKEN=<jwt>
     RL_SERVER_WAIT_MS=45000
     RL_SERVER_POLL_MS=1000
+    RL_AUTOSTART_SERVER=false
     RL_FAIL_ON_SKIPPED=false
     RL_REPORT_FORMAT=text|json|junit
     RL_REPORT_FILE=./artifacts/rate-limit-report.json
@@ -17,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const RL_TEST_EMAIL = process.env.RL_TEST_EMAIL || 'ratelimit-test@parkingos.local';
@@ -24,11 +26,13 @@ const RL_TEST_PASSWORD = process.env.RL_TEST_PASSWORD || 'invalid-password';
 const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
 const RL_SERVER_WAIT_MS = Number(process.env.RL_SERVER_WAIT_MS || 45_000);
 const RL_SERVER_POLL_MS = Number(process.env.RL_SERVER_POLL_MS || 1_000);
+const RL_AUTOSTART_SERVER = /^(1|true|yes)$/i.test(String(process.env.RL_AUTOSTART_SERVER || 'false'));
 const RL_FAIL_ON_SKIPPED = /^(1|true|yes)$/i.test(String(process.env.RL_FAIL_ON_SKIPPED || 'false'));
 const RL_REPORT_FORMAT = String(process.env.RL_REPORT_FORMAT || 'text').toLowerCase();
 const RL_REPORT_FILE = process.env.RL_REPORT_FILE || '';
 
 const results = [];
+let managedDevServer = null;
 
 function nowMs() {
   return Date.now();
@@ -143,6 +147,52 @@ async function waitForServer() {
   throw new Error(
     `Server not reachable at ${BASE_URL} after ${RL_SERVER_WAIT_MS}ms. Start the app (npm run dev) or set BASE_URL.`
   );
+}
+
+function startDevServer() {
+  if (managedDevServer) return;
+
+  managedDevServer = spawn('npm', ['run', 'dev'], {
+    cwd: process.cwd(),
+    shell: true,
+    stdio: 'ignore',
+    detached: false,
+  });
+
+  managedDevServer.on('exit', () => {
+    managedDevServer = null;
+  });
+}
+
+function stopDevServer() {
+  if (!managedDevServer || managedDevServer.killed) return;
+
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(managedDevServer.pid), '/t', '/f'], {
+        shell: true,
+        stdio: 'ignore',
+      });
+    } else {
+      managedDevServer.kill('SIGTERM');
+    }
+  } catch {
+    // best effort cleanup
+  }
+}
+
+async function ensureServerReady() {
+  try {
+    await waitForServer();
+    return;
+  } catch (initialError) {
+    if (!RL_AUTOSTART_SERVER) throw initialError;
+  }
+
+  console.log('Server unreachable. Starting local dev server automatically...');
+  startDevServer();
+  await sleep(1_500);
+  await waitForServer();
 }
 
 async function postJson(pathname, payload, headers = {}) {
@@ -281,7 +331,7 @@ function emitReport() {
 async function main() {
   console.log(`Running against ${BASE_URL}`);
 
-  await waitForServer();
+  await ensureServerReady();
 
   await runCase('auth: returns 429 with Retry-After', testAuthRateLimit);
   await runCase('dashboard: returns 429 with Retry-After', testDashboardRateLimit);
@@ -295,11 +345,15 @@ async function main() {
     if (!hasFailures && hasSkipped) {
       console.error('Strict mode enabled: skipped test(s) treated as failure.');
     }
+    stopDevServer();
     process.exit(1);
   }
+
+  stopDevServer();
 }
 
 main().catch((error) => {
+  stopDevServer();
   console.error('Rate limit smoke failed:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

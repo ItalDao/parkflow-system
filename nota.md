@@ -115,6 +115,7 @@ Resultado esperado:
 - Implementado: reporte CI-friendly para smoke de rate limit (formatos `json` y `junit`).
 - Implementado: preflight de disponibilidad de servidor en smoke de rate limit (poll + timeout configurable).
 - Implementado: modo estricto en smoke de rate limit para CI (`RL_FAIL_ON_SKIPPED=true`).
+- Implementado: auto-start opcional de servidor en smoke de rate limit (`RL_AUTOSTART_SERVER=true`).
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise

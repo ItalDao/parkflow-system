@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "smoke:ratelimit": "node check-rate-limit.js",
+    "smoke:ratelimit:auto": "powershell -NoProfile -Command \"$env:RL_AUTOSTART_SERVER='true'; node check-rate-limit.js\"",
     "smoke:ratelimit:junit": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; node check-rate-limit.js\"",
     "smoke:ratelimit:strict": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; $env:RL_FAIL_ON_SKIPPED='true'; node check-rate-limit.js\""
   },
