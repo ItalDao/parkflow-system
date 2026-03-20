@@ -25,6 +25,7 @@ jobs:
           --health-retries 10
 
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parkingos?schema=public
       JWT_SECRET: ci-jwt-secret
       JWT_REFRESH_SECRET: ci-refresh-secret
@@ -58,21 +59,54 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          cleanup() {
+            if [[ -n "${DEV_PID:-}" ]]; then
+              kill "$DEV_PID" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
           npm run dev > /tmp/parkingos-dev.log 2>&1 &
           DEV_PID=$!
 
+          READY=0
           for i in {1..90}; do
             if curl -fsS http://localhost:3000/ > /dev/null; then
+              READY=1
               break
             fi
             sleep 1
           done
 
-          curl -fsS -X POST http://localhost:3000/api/seed > /tmp/seed-response.json
-          kill $DEV_PID || true
+          if [[ "$READY" -ne 1 ]]; then
+            echo "Server did not become ready in time"
+            tail -n 200 /tmp/parkingos-dev.log || true
+            exit 1
+          fi
+
+          SEED_OK=0
+          for i in {1..8}; do
+            if curl -fsS -X POST http://localhost:3000/api/seed > /tmp/seed-response.json; then
+              SEED_OK=1
+              break
+            fi
+            echo "Seed attempt $i failed, retrying..."
+            sleep 2
+          done
+
+          if [[ "$SEED_OK" -ne 1 ]]; then
+            echo "Seed endpoint failed after retries"
+            tail -n 200 /tmp/parkingos-dev.log || true
+            cat /tmp/seed-response.json || true
+            exit 1
+          fi
 
       - name: Smoke rate-limit strict auto
         run: npm run smoke:ratelimit:strict:auto
+
+      - name: Smoke business flow auto
+        run: npm run smoke:business:junit:auto
 
       - name: Upload smoke artifacts
         if: always()

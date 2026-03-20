@@ -12,7 +12,10 @@
     "smoke:ratelimit:auto": "powershell -NoProfile -Command \"$env:RL_AUTOSTART_SERVER='true'; node check-rate-limit.js\"",
     "smoke:ratelimit:junit": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; node check-rate-limit.js\"",
     "smoke:ratelimit:strict": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; $env:RL_FAIL_ON_SKIPPED='true'; node check-rate-limit.js\"",
-    "smoke:ratelimit:strict:auto": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; $env:RL_FAIL_ON_SKIPPED='true'; $env:RL_AUTOSTART_SERVER='true'; node check-rate-limit.js\""
+    "smoke:ratelimit:strict:auto": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; $env:RL_FAIL_ON_SKIPPED='true'; $env:RL_AUTOSTART_SERVER='true'; node check-rate-limit.js\"",
+    "smoke:business": "node check-business-flow.js",
+    "smoke:business:auto": "powershell -NoProfile -Command \"$env:BF_AUTOSTART_SERVER='true'; node check-business-flow.js\"",
+    "smoke:business:junit:auto": "powershell -NoProfile -Command \"$env:BF_AUTOSTART_SERVER='true'; $env:BF_REPORT_FORMAT='junit'; node check-business-flow.js\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",

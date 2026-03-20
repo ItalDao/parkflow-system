@@ -119,6 +119,7 @@ Resultado esperado:
 - Implementado: obtención automática de token para smoke de dashboard vía credenciales (`DASHBOARD_TEST_EMAIL`/`DASHBOARD_TEST_PASSWORD`).
 - Implementado: script combinado `strict+auto` para smoke de rate limit (sin depender de server levantado manualmente).
 - Implementado: pipeline CI con Postgres + migraciones + seed + smoke strict:auto + artifacts.
+- Implementado: smoke E2E de negocio robusto con usuario de flujo configurable (evita dependencia de asignación de sede del operador).
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise

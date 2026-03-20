@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="business-flow-smoke" tests="9" failures="0" time="1.825">
+  <testcase classname="business-flow-smoke" name="seed: initializes core data" time="0.534">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="auth: operator login" time="0.347">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="auth: admin login" time="0.324">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="auth: flow user login" time="0.321">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="rbac: operator cannot list users" time="0.011">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="rbac: admin can list users" time="0.025">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="shift: flow user can open shift" time="0.048">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="tickets: flow user entry and exit flow" time="0.193">
+  </testcase>
+  <testcase classname="business-flow-smoke" name="shift: flow user can close shift" time="0.022">
+  </testcase>
+</testsuite>
