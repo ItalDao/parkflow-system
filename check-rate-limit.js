@@ -10,6 +10,7 @@
     DASHBOARD_TOKEN=<jwt>
     RL_SERVER_WAIT_MS=45000
     RL_SERVER_POLL_MS=1000
+    RL_FAIL_ON_SKIPPED=false
     RL_REPORT_FORMAT=text|json|junit
     RL_REPORT_FILE=./artifacts/rate-limit-report.json
 */
@@ -23,6 +24,7 @@ const RL_TEST_PASSWORD = process.env.RL_TEST_PASSWORD || 'invalid-password';
 const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
 const RL_SERVER_WAIT_MS = Number(process.env.RL_SERVER_WAIT_MS || 45_000);
 const RL_SERVER_POLL_MS = Number(process.env.RL_SERVER_POLL_MS || 1_000);
+const RL_FAIL_ON_SKIPPED = /^(1|true|yes)$/i.test(String(process.env.RL_FAIL_ON_SKIPPED || 'false'));
 const RL_REPORT_FORMAT = String(process.env.RL_REPORT_FORMAT || 'text').toLowerCase();
 const RL_REPORT_FILE = process.env.RL_REPORT_FILE || '';
 
@@ -288,7 +290,11 @@ async function main() {
   emitReport();
 
   const hasFailures = results.some((r) => r.status === 'failed');
-  if (hasFailures) {
+  const hasSkipped = results.some((r) => r.status === 'skipped');
+  if (hasFailures || (RL_FAIL_ON_SKIPPED && hasSkipped)) {
+    if (!hasFailures && hasSkipped) {
+      console.error('Strict mode enabled: skipped test(s) treated as failure.');
+    }
     process.exit(1);
   }
 }

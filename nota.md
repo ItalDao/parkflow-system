@@ -114,6 +114,7 @@ Resultado esperado:
 - Implementado: smoke script de verificación de 429/Retry-After para rate limiting (`check-rate-limit.js`).
 - Implementado: reporte CI-friendly para smoke de rate limit (formatos `json` y `junit`).
 - Implementado: preflight de disponibilidad de servidor en smoke de rate limit (poll + timeout configurable).
+- Implementado: modo estricto en smoke de rate limit para CI (`RL_FAIL_ON_SKIPPED=true`).
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise
