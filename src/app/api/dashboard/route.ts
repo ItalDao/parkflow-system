@@ -3,69 +3,18 @@ import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 import { getHashedClientIp } from '@/lib/security';
+import { InMemoryRateLimiter, RateLimitRule } from '@/lib/rate-limit';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-type ActionThrottle = {
-  attempts: number;
-  blockedUntil: number;
-  lastSeen: number;
-};
-
-type ActionRule = {
-  windowMs: number;
-  maxAttempts: number;
-  blockMs: number;
-};
-
-const actionThrottleStore = new Map<string, ActionThrottle>();
-
-const ACTION_THROTTLE_RULES: Record<string, ActionRule> = {
+const ACTION_THROTTLE_RULES: Record<string, RateLimitRule> = {
   booking: { windowMs: 60_000, maxAttempts: 10, blockMs: 60_000 },
   entry: { windowMs: 60_000, maxAttempts: 20, blockMs: 60_000 },
   exit: { windowMs: 60_000, maxAttempts: 20, blockMs: 60_000 },
   'open-shift': { windowMs: 5 * 60_000, maxAttempts: 3, blockMs: 5 * 60_000 },
   'close-shift': { windowMs: 5 * 60_000, maxAttempts: 3, blockMs: 5 * 60_000 },
 };
-
-function throttleKey(userId: string, action: string) {
-  return `${userId}:${action}`;
-}
-
-function sweepActionThrottle(now: number) {
-  for (const [k, v] of actionThrottleStore.entries()) {
-    if (v.blockedUntil <= now && now - v.lastSeen > 30 * 60_000) {
-      actionThrottleStore.delete(k);
-    }
-  }
-}
-
-function checkAndHitActionThrottle(userId: string, action: string): { blocked: false } | { blocked: true; retryAfterSec: number } {
-  const rule = ACTION_THROTTLE_RULES[action];
-  if (!rule) return { blocked: false };
-
-  const now = Date.now();
-  sweepActionThrottle(now);
-
-  const key = throttleKey(userId, action);
-  const entry = actionThrottleStore.get(key);
-
-  if (entry && entry.blockedUntil > now) {
-    return { blocked: true, retryAfterSec: Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000)) };
-  }
-
-  const resetByWindow = !entry || now - entry.lastSeen > rule.windowMs;
-  const attempts = resetByWindow ? 1 : entry.attempts + 1;
-  const blockedUntil = attempts > rule.maxAttempts ? now + rule.blockMs : 0;
-
-  actionThrottleStore.set(key, { attempts, blockedUntil, lastSeen: now });
-
-  if (blockedUntil > now) {
-    return { blocked: true, retryAfterSec: Math.max(1, Math.ceil((blockedUntil - now) / 1000)) };
-  }
-
-  return { blocked: false };
-}
+const actionRateLimiter = new InMemoryRateLimiter(ACTION_THROTTLE_RULES);
 
 function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -1028,7 +977,7 @@ export async function POST(request: NextRequest) {
     const { resource } = body;
 
     if (typeof resource === 'string' && ACTION_THROTTLE_RULES[resource]) {
-      const t = checkAndHitActionThrottle(tokenUser.userId, resource);
+      const t = actionRateLimiter.checkAndHit(tokenUser.userId, resource);
       if (t.blocked) {
         await createAuditLog(tokenUser.userId, 'RATE_LIMITED_ACTION', 'DashboardResource', resource, {
           resource,
