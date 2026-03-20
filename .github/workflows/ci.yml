@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: parkingos
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d parkingos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parkingos?schema=public
+      JWT_SECRET: ci-jwt-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      AUDIT_IP_SALT: ci-ip-salt
+      DASHBOARD_TEST_EMAIL: matias.operator@acuario.com
+      DASHBOARD_TEST_PASSWORD: Matias@Admin123
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Build
+        run: npm run build
+
+      - name: Seed via API
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev > /tmp/parkingos-dev.log 2>&1 &
+          DEV_PID=$!
+
+          for i in {1..90}; do
+            if curl -fsS http://localhost:3000/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS -X POST http://localhost:3000/api/seed > /tmp/seed-response.json
+          kill $DEV_PID || true
+
+      - name: Smoke rate-limit strict auto
+        run: npm run smoke:ratelimit:strict:auto
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
