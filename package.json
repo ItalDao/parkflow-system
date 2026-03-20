@@ -7,7 +7,9 @@
     "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "smoke:ratelimit": "node check-rate-limit.js",
+    "smoke:ratelimit:junit": "powershell -NoProfile -Command \"$env:RL_REPORT_FORMAT='junit'; node check-rate-limit.js\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",

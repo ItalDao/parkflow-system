@@ -8,15 +8,111 @@
     RL_TEST_EMAIL=ratelimit-test@parkingos.local
     RL_TEST_PASSWORD=invalid-password
     DASHBOARD_TOKEN=<jwt>
+    RL_REPORT_FORMAT=text|json|junit
+    RL_REPORT_FILE=./artifacts/rate-limit-report.json
 */
+
+const fs = require('fs');
+const path = require('path');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const RL_TEST_EMAIL = process.env.RL_TEST_EMAIL || 'ratelimit-test@parkingos.local';
 const RL_TEST_PASSWORD = process.env.RL_TEST_PASSWORD || 'invalid-password';
 const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || '';
+const RL_REPORT_FORMAT = String(process.env.RL_REPORT_FORMAT || 'text').toLowerCase();
+const RL_REPORT_FILE = process.env.RL_REPORT_FILE || '';
 
-async function postJson(path, payload, headers = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+const results = [];
+
+function nowMs() {
+  return Date.now();
+}
+
+function xmlEscape(input) {
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function writeReport(content, reportPath) {
+  const outPath = reportPath || defaultReportPath();
+  const dir = path.dirname(outPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(outPath, content, 'utf8');
+  console.log(`Report written to ${outPath}`);
+}
+
+function defaultReportPath() {
+  if (RL_REPORT_FORMAT === 'json') return path.join('artifacts', 'rate-limit-report.json');
+  if (RL_REPORT_FORMAT === 'junit') return path.join('artifacts', 'rate-limit-report.xml');
+  return path.join('artifacts', 'rate-limit-report.txt');
+}
+
+function toJsonReport() {
+  const total = results.length;
+  const failed = results.filter((r) => r.status === 'failed').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+  return JSON.stringify(
+    {
+      suite: 'rate-limit-smoke',
+      baseUrl: BASE_URL,
+      total,
+      failed,
+      skipped,
+      passed: total - failed - skipped,
+      timestamp: new Date().toISOString(),
+      results,
+    },
+    null,
+    2
+  );
+}
+
+function toJunitReport() {
+  const total = results.length;
+  const failed = results.filter((r) => r.status === 'failed').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+  const totalSeconds = results.reduce((acc, item) => acc + item.durationMs, 0) / 1000;
+
+  const testcases = results
+    .map((r) => {
+      const base = `  <testcase classname="rate-limit-smoke" name="${xmlEscape(r.name)}" time="${(r.durationMs / 1000).toFixed(3)}">`;
+      if (r.status === 'failed') {
+        return `${base}\n    <failure message="${xmlEscape(r.message)}"/>\n  </testcase>`;
+      }
+      if (r.status === 'skipped') {
+        return `${base}\n    <skipped message="${xmlEscape(r.message)}"/>\n  </testcase>`;
+      }
+      return `${base}\n  </testcase>`;
+    })
+    .join('\n');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<testsuite name="rate-limit-smoke" tests="${total}" failures="${failed}" skipped="${skipped}" time="${totalSeconds.toFixed(3)}">`,
+    testcases,
+    '</testsuite>',
+    '',
+  ].join('\n');
+}
+
+function printTextSummary() {
+  const total = results.length;
+  const failed = results.filter((r) => r.status === 'failed').length;
+  const skipped = results.filter((r) => r.status === 'skipped').length;
+  const passed = total - failed - skipped;
+
+  console.log('== Summary ==');
+  console.log(`passed=${passed} failed=${failed} skipped=${skipped} total=${total}`);
+}
+
+async function postJson(pathname, payload, headers = {}) {
+  const response = await fetch(`${BASE_URL}${pathname}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -33,6 +129,27 @@ async function postJson(path, payload, headers = {}) {
   }
 
   return { response, json };
+}
+
+async function runCase(name, fn) {
+  const started = nowMs();
+  try {
+    const maybeSkipMessage = await fn();
+    const durationMs = nowMs() - started;
+    if (typeof maybeSkipMessage === 'string' && maybeSkipMessage.startsWith('SKIP:')) {
+      const message = maybeSkipMessage.slice(5).trim();
+      results.push({ name, status: 'skipped', durationMs, message });
+      console.log(`[skip] ${name}: ${message}`);
+      return;
+    }
+    results.push({ name, status: 'passed', durationMs, message: 'ok' });
+    console.log(`[pass] ${name}`);
+  } catch (error) {
+    const durationMs = nowMs() - started;
+    const message = error instanceof Error ? error.message : String(error);
+    results.push({ name, status: 'failed', durationMs, message });
+    console.error(`[fail] ${name}: ${message}`);
+  }
 }
 
 async function testAuthRateLimit() {
@@ -65,14 +182,11 @@ async function testAuthRateLimit() {
   if (!retryAfter) {
     throw new Error('Auth 429 response did not include Retry-After header.');
   }
-
-  console.log('Auth rate limit OK');
 }
 
 async function testDashboardRateLimit() {
   if (!DASHBOARD_TOKEN) {
-    console.log('== Dashboard rate limit smoke skipped (set DASHBOARD_TOKEN to enable) ==');
-    return;
+    return 'SKIP: set DASHBOARD_TOKEN to enable dashboard throttle validation';
   }
 
   console.log('== Dashboard rate limit smoke ==');
@@ -111,18 +225,41 @@ async function testDashboardRateLimit() {
   if (!retryAfter) {
     throw new Error('Dashboard 429 response did not include Retry-After header.');
   }
+}
 
-  console.log('Dashboard rate limit OK');
+function emitReport() {
+  if (RL_REPORT_FORMAT === 'json') {
+    writeReport(toJsonReport(), RL_REPORT_FILE);
+    return;
+  }
+  if (RL_REPORT_FORMAT === 'junit') {
+    writeReport(toJunitReport(), RL_REPORT_FILE);
+    return;
+  }
+  if (RL_REPORT_FILE) {
+    const text = results
+      .map((r) => `${r.status.toUpperCase()} ${r.name} (${r.durationMs}ms) ${r.message}`)
+      .join('\n');
+    writeReport(text + '\n', RL_REPORT_FILE);
+  }
 }
 
 async function main() {
   console.log(`Running against ${BASE_URL}`);
-  await testAuthRateLimit();
-  await testDashboardRateLimit();
-  console.log('Rate limit smoke completed successfully.');
+
+  await runCase('auth: returns 429 with Retry-After', testAuthRateLimit);
+  await runCase('dashboard: returns 429 with Retry-After', testDashboardRateLimit);
+
+  printTextSummary();
+  emitReport();
+
+  const hasFailures = results.some((r) => r.status === 'failed');
+  if (hasFailures) {
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {
-  console.error('Rate limit smoke failed:', error.message);
+  console.error('Rate limit smoke failed:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
