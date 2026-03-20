@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, comparePassword, generateAccessToken, generateRefreshToken } from '@/lib/auth';
+import { getClientIp, hashIp } from '@/lib/security';
 
 type LoginThrottle = {
   attempts: number;
@@ -14,26 +15,20 @@ const LOGIN_BLOCK_MS = 10 * 60 * 1000; // 10 minutes
 const loginThrottles = new Map<string, LoginThrottle>();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function createAuthAuditLog(userId: string, action: string, details?: unknown) {
+async function createAuthAuditLog(userId: string, action: string, ipHash?: string, details?: unknown) {
   try {
     await prisma.auditLog.create({
       data: {
         userId,
         action,
         entity: 'Auth',
+        ipAddress: ipHash || null,
         details: details ? JSON.stringify(details) : null,
       },
     });
   } catch (error) {
     console.error('Auth audit log error:', error);
   }
-}
-
-function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown';
-  const realIp = request.headers.get('x-real-ip');
-  return realIp || 'unknown';
 }
 
 function getThrottleKey(ip: string, email: string): string {
@@ -113,15 +108,15 @@ export async function POST(request: NextRequest) {
       }
 
       const clientIp = getClientIp(request);
+      const clientIpHash = hashIp(clientIp);
       const throttleKey = getThrottleKey(clientIp, normalizedEmail);
       const currentThrottle = loginThrottles.get(throttleKey);
       if (currentThrottle?.blockedUntil && currentThrottle.blockedUntil > now) {
         const retryAfter = Math.max(1, Math.ceil((currentThrottle.blockedUntil - now) / 1000));
         const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
         if (existingUser) {
-          await createAuthAuditLog(existingUser.id, 'RATE_LIMITED_LOGIN', {
+          await createAuthAuditLog(existingUser.id, 'RATE_LIMITED_LOGIN', clientIpHash, {
             retryAfter,
-            ip: clientIp,
           });
         }
         return NextResponse.json(
@@ -141,9 +136,8 @@ export async function POST(request: NextRequest) {
       }
 
       if (user.isBlocked && user.blockedUntil && user.blockedUntil > new Date()) {
-        await createAuthAuditLog(user.id, 'LOGIN_BLOCKED_ACCOUNT', {
+        await createAuthAuditLog(user.id, 'LOGIN_BLOCKED_ACCOUNT', clientIpHash, {
           blockedUntil: user.blockedUntil,
-          ip: clientIp,
         });
         return NextResponse.json({ error: 'Cuenta bloqueada temporalmente. Intenta de nuevo más tarde.' }, { status: 403 });
       }
@@ -163,9 +157,8 @@ export async function POST(request: NextRequest) {
           updateData.blockedUntil = new Date(Date.now() + 15 * 60 * 1000);
         }
         await prisma.user.update({ where: { id: user.id }, data: updateData });
-        await createAuthAuditLog(user.id, 'LOGIN_FAILED', {
+        await createAuthAuditLog(user.id, 'LOGIN_FAILED', clientIpHash, {
           failedAttempts,
-          ip: clientIp,
           throttledAttempts: throttleAttempts,
         });
         return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
@@ -189,7 +182,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await createAuthAuditLog(user.id, 'LOGIN_SUCCESS', { ip: clientIp });
+      await createAuthAuditLog(user.id, 'LOGIN_SUCCESS', clientIpHash);
 
       return NextResponse.json({
         user: {

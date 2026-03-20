@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
+import { getHashedClientIp } from '@/lib/security';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -1032,6 +1033,7 @@ export async function POST(request: NextRequest) {
         await createAuditLog(tokenUser.userId, 'RATE_LIMITED_ACTION', 'DashboardResource', resource, {
           resource,
           retryAfterSec: t.retryAfterSec,
+          ipHash: getHashedClientIp(request),
         });
         return NextResponse.json(
           { error: `Demasiadas operaciones en poco tiempo para ${resource}. Intenta de nuevo en ${t.retryAfterSec}s.` },
@@ -1131,6 +1133,21 @@ export async function POST(request: NextRequest) {
     if (resource === 'exit') {
       const { ticketId, paymentMethod, cashReceived, lostTicket } = body;
 
+      const rawPaymentMethod = String(paymentMethod || 'CASH').trim().toUpperCase();
+      const normalizedPaymentMethod: PaymentMethod = Object.values(PaymentMethod).includes(rawPaymentMethod as PaymentMethod)
+        ? (rawPaymentMethod as PaymentMethod)
+        : 'CASH';
+      if (paymentMethod && normalizedPaymentMethod !== rawPaymentMethod) {
+        return NextResponse.json({ error: 'Método de pago inválido' }, { status: 400 });
+      }
+
+      const normalizedCashReceived = typeof cashReceived === 'number' && Number.isFinite(cashReceived)
+        ? cashReceived
+        : null;
+      if (normalizedPaymentMethod === 'CASH' && cashReceived != null && normalizedCashReceived == null) {
+        return NextResponse.json({ error: 'cashReceived debe ser un número válido' }, { status: 400 });
+      }
+
       const ticket = await prisma.ticket.findUnique({
         where: { id: ticketId },
         include: { vehicle: true, space: { include: { zone: true } } },
@@ -1180,7 +1197,10 @@ export async function POST(request: NextRequest) {
       });
 
       const totalAmount = lostTicket ? parkingLot.lostTicketFee : pricing.amount;
-      const changeGiven = paymentMethod === 'CASH' && cashReceived ? cashReceived - totalAmount : 0;
+      if (normalizedPaymentMethod === 'CASH' && normalizedCashReceived != null && normalizedCashReceived < totalAmount) {
+        return NextResponse.json({ error: 'Efectivo insuficiente para cubrir el total' }, { status: 400 });
+      }
+      const changeGiven = normalizedPaymentMethod === 'CASH' && normalizedCashReceived != null ? normalizedCashReceived - totalAmount : 0;
 
       const activeShift = await prisma.shift.findFirst({
         where: { operatorId: tokenUser.userId, status: 'OPEN' },
@@ -1190,9 +1210,9 @@ export async function POST(request: NextRequest) {
         const payment = await tx.payment.create({
           data: {
             amount: totalAmount,
-            method: paymentMethod || 'CASH',
+            method: normalizedPaymentMethod,
             status: 'COMPLETED',
-            cashReceived: cashReceived || null,
+            cashReceived: normalizedPaymentMethod === 'CASH' ? normalizedCashReceived : null,
             changeGiven: changeGiven > 0 ? changeGiven : null,
             invoiceNumber: `INV-${Date.now()}`,
             ticketId: ticket.id,
@@ -1215,7 +1235,7 @@ export async function POST(request: NextRequest) {
         await setSpaceStatusWithHistory(tx, { spaceId: ticket.spaceId, toStatus: 'AVAILABLE', reason: lostTicket ? 'Salida por ticket perdido' : 'Salida completada' });
 
         if (activeShift) {
-          const method = paymentMethod || 'CASH';
+          const method = normalizedPaymentMethod;
           const cashAdd = method === 'CASH' ? totalAmount : 0;
           const cardAdd = method === 'CARD' ? totalAmount : 0;
           const digitalAdd = method === 'DIGITAL_WALLET' ? totalAmount : 0;
@@ -1236,7 +1256,7 @@ export async function POST(request: NextRequest) {
 
       await createAuditLog(tokenUser.userId, lostTicket ? 'EXIT_LOST_TICKET' : 'EXIT_TICKET', 'Ticket', ticket.id, {
         plate: ticket.vehicle.plate,
-        paymentMethod: paymentMethod || 'CASH',
+        paymentMethod: normalizedPaymentMethod,
         amount: totalAmount,
       });
 
