@@ -12,6 +12,22 @@ const LOGIN_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const LOGIN_MAX_ATTEMPTS = 8;
 const LOGIN_BLOCK_MS = 10 * 60 * 1000; // 10 minutes
 const loginThrottles = new Map<string, LoginThrottle>();
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function createAuthAuditLog(userId: string, action: string, details?: unknown) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action,
+        entity: 'Auth',
+        details: details ? JSON.stringify(details) : null,
+      },
+    });
+  } catch (error) {
+    console.error('Auth audit log error:', error);
+  }
+}
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -44,6 +60,12 @@ export async function POST(request: NextRequest) {
     if (action === 'register') {
       if (!normalizedEmail || !password) {
         return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
+      }
+      if (!EMAIL_REGEX.test(normalizedEmail)) {
+        return NextResponse.json({ error: 'Formato de email inválido' }, { status: 400 });
+      }
+      if (String(password).length < 6) {
+        return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
       }
 
       const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -90,10 +112,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
       }
 
-      const throttleKey = getThrottleKey(getClientIp(request), normalizedEmail);
+      const clientIp = getClientIp(request);
+      const throttleKey = getThrottleKey(clientIp, normalizedEmail);
       const currentThrottle = loginThrottles.get(throttleKey);
       if (currentThrottle?.blockedUntil && currentThrottle.blockedUntil > now) {
         const retryAfter = Math.max(1, Math.ceil((currentThrottle.blockedUntil - now) / 1000));
+        const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
+        if (existingUser) {
+          await createAuthAuditLog(existingUser.id, 'RATE_LIMITED_LOGIN', {
+            retryAfter,
+            ip: clientIp,
+          });
+        }
         return NextResponse.json(
           { error: `Demasiados intentos. Intenta nuevamente en ${Math.ceil(retryAfter / 60)} min.` },
           { status: 429, headers: { 'Retry-After': String(retryAfter) } }
@@ -111,6 +141,10 @@ export async function POST(request: NextRequest) {
       }
 
       if (user.isBlocked && user.blockedUntil && user.blockedUntil > new Date()) {
+        await createAuthAuditLog(user.id, 'LOGIN_BLOCKED_ACCOUNT', {
+          blockedUntil: user.blockedUntil,
+          ip: clientIp,
+        });
         return NextResponse.json({ error: 'Cuenta bloqueada temporalmente. Intenta de nuevo más tarde.' }, { status: 403 });
       }
 
@@ -129,6 +163,11 @@ export async function POST(request: NextRequest) {
           updateData.blockedUntil = new Date(Date.now() + 15 * 60 * 1000);
         }
         await prisma.user.update({ where: { id: user.id }, data: updateData });
+        await createAuthAuditLog(user.id, 'LOGIN_FAILED', {
+          failedAttempts,
+          ip: clientIp,
+          throttledAttempts: throttleAttempts,
+        });
         return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
       }
 
@@ -149,6 +188,8 @@ export async function POST(request: NextRequest) {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
+
+      await createAuthAuditLog(user.id, 'LOGIN_SUCCESS', { ip: clientIp });
 
       return NextResponse.json({
         user: {
