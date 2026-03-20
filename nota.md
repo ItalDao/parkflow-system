@@ -111,6 +111,7 @@ Resultado esperado:
 - Implementado: hardening activo en API (rate limit in-memory en login y operaciones críticas con 429/Retry-After, auditoría de bloqueos/fallos/exitos de login con IP anonimizada por hash y validación estricta de sede en cierres/salidas).
 - Implementado: capa reusable de rate limiting in-memory compartida entre auth y dashboard, lista para migración incremental a backend distribuido (Redis).
 - Implementado: selector de backend para rate limiting por entorno (`RATE_LIMIT_BACKEND`) con proveedor Redis disponible (`REDIS_URL`) y fallback seguro a memory.
+- Implementado: smoke script de verificación de 429/Retry-After para rate limiting (`check-rate-limit.js`).
 - Propuesto/roadmap: integraciones externas, mobile avanzado, OCR, i18n completo y hardening adicional.
 
 ### Arquitectura & Funcionalidades — Calidad Producción Enterprise
