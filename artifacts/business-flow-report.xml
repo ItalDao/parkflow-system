@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="business-flow-smoke" tests="9" failures="0" time="1.825">
-  <testcase classname="business-flow-smoke" name="seed: initializes core data" time="0.534">
+<testsuite name="business-flow-smoke" tests="9" failures="0" time="2.149">
+  <testcase classname="business-flow-smoke" name="seed: initializes core data" time="0.608">
   </testcase>
-  <testcase classname="business-flow-smoke" name="auth: operator login" time="0.347">
+  <testcase classname="business-flow-smoke" name="auth: operator login" time="0.410">
   </testcase>
-  <testcase classname="business-flow-smoke" name="auth: admin login" time="0.324">
+  <testcase classname="business-flow-smoke" name="auth: admin login" time="0.395">
   </testcase>
-  <testcase classname="business-flow-smoke" name="auth: flow user login" time="0.321">
+  <testcase classname="business-flow-smoke" name="auth: flow user login" time="0.384">
   </testcase>
-  <testcase classname="business-flow-smoke" name="rbac: operator cannot list users" time="0.011">
+  <testcase classname="business-flow-smoke" name="rbac: operator cannot list users" time="0.014">
   </testcase>
-  <testcase classname="business-flow-smoke" name="rbac: admin can list users" time="0.025">
+  <testcase classname="business-flow-smoke" name="rbac: admin can list users" time="0.040">
   </testcase>
-  <testcase classname="business-flow-smoke" name="shift: flow user can open shift" time="0.048">
+  <testcase classname="business-flow-smoke" name="shift: flow user can open shift" time="0.065">
   </testcase>
-  <testcase classname="business-flow-smoke" name="tickets: flow user entry and exit flow" time="0.193">
+  <testcase classname="business-flow-smoke" name="tickets: flow user entry and exit flow" time="0.196">
   </testcase>
-  <testcase classname="business-flow-smoke" name="shift: flow user can close shift" time="0.022">
+  <testcase classname="business-flow-smoke" name="shift: flow user can close shift" time="0.037">
   </testcase>
 </testsuite>
