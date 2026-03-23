@@ -6,6 +6,8 @@ import { getHashedClientIp } from '@/lib/security';
 import { createRateLimiter, RateLimitRule } from '@/lib/rate-limit';
 import { sendTransactionalEmail } from '@/lib/email';
 import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
+import { finalizeTicketExit, quoteTicketExit } from '@/lib/ticket-exit';
+import { getStripeClient, isStripeEnabled, toStripeAmount } from '@/lib/stripe';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -1091,10 +1093,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'cashReceived debe ser un número válido' }, { status: 400 });
       }
 
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-        include: { vehicle: true, space: { include: { zone: true } } },
-      });
+      const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: { vehicle: true, space: { include: { zone: true } } } });
 
       if (!ticket || ticket.status !== 'ACTIVE') {
         return NextResponse.json({ error: 'Ticket no encontrado o ya procesado' }, { status: 400 });
@@ -1104,111 +1103,106 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
       }
 
-      const parkingLot = await prisma.parkingLot.findUnique({ where: { id: ticket.parkingLotId } });
-      if (!parkingLot) return NextResponse.json({ error: 'Sede no encontrada' }, { status: 400 });
+      const quoted = await quoteTicketExit({ ticketId: ticket.id, lostTicket: Boolean(lostTicket) });
 
-      const now = new Date();
-      const entryTime = new Date(ticket.entryTime);
-
-      // Preferimos tarifa por zona, luego tarifa global de la sede.
-      const zoneRate = await prisma.rate.findFirst({
-        where: {
-          parkingLotId: ticket.parkingLotId,
-          vehicleType: ticket.vehicle.type,
-          zoneId: ticket.space.zoneId,
-          isActive: true,
-        },
-        orderBy: { price: 'desc' },
-      });
-      const lotRate = await prisma.rate.findFirst({
-        where: {
-          parkingLotId: ticket.parkingLotId,
-          vehicleType: ticket.vehicle.type,
-          zoneId: null,
-          isActive: true,
-        },
-        orderBy: { price: 'desc' },
-      });
-      const rate = zoneRate ?? lotRate;
-
-      const hourlyRate = rate?.price ?? 3000;
-      const pricing = calculateHourlyFractionalPricing({
-        entryTime,
-        exitTime: now,
-        gracePeriodMinutes: parkingLot.gracePeriod,
-        hourlyRate,
-      });
-
-      const totalAmount = lostTicket ? parkingLot.lostTicketFee : pricing.amount;
-      if (normalizedPaymentMethod === 'CASH' && normalizedCashReceived != null && normalizedCashReceived < totalAmount) {
+      if (normalizedPaymentMethod === 'CASH' && normalizedCashReceived != null && normalizedCashReceived < quoted.totalAmount) {
         return NextResponse.json({ error: 'Efectivo insuficiente para cubrir el total' }, { status: 400 });
       }
-      const changeGiven = normalizedPaymentMethod === 'CASH' && normalizedCashReceived != null ? normalizedCashReceived - totalAmount : 0;
 
-      const activeShift = await prisma.shift.findFirst({
-        where: { operatorId: tokenUser.userId, status: 'OPEN' },
-      });
+      // Digital methods can use Stripe checkout when configured.
+      if ((normalizedPaymentMethod === 'CARD' || normalizedPaymentMethod === 'DIGITAL_WALLET') && isStripeEnabled()) {
+        const stripe = getStripeClient();
+        if (!stripe) {
+          return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+        }
 
-      const result = await prisma.$transaction(async (tx) => {
-        const payment = await tx.payment.create({
-          data: {
-            amount: totalAmount,
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const shiftId = (await prisma.shift.findFirst({ where: { operatorId: tokenUser.userId, status: 'OPEN' }, select: { id: true } }))?.id || null;
+
+        const session = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          payment_method_types: ['card'],
+          success_url: `${appUrl}/dashboard/tickets?stripe=success&ticketId=${ticket.id}`,
+          cancel_url: `${appUrl}/dashboard/tickets?stripe=cancel&ticketId=${ticket.id}`,
+          line_items: [
+            {
+              quantity: 1,
+              price_data: {
+                currency: 'cop',
+                product_data: {
+                  name: `Salida ticket ${ticket.ticketCode}`,
+                  description: `${ticket.vehicle.plate} · ${ticket.space.zone.name} · ${ticket.space.number}`,
+                },
+                unit_amount: toStripeAmount(quoted.totalAmount, 'cop'),
+              },
+            },
+          ],
+          metadata: {
+            ticketId: ticket.id,
+            operatorId: tokenUser.userId,
+            paymentMethod: normalizedPaymentMethod,
+            lostTicket: lostTicket ? 'true' : 'false',
+            shiftId: shiftId || '',
+          },
+        });
+
+        await prisma.payment.upsert({
+          where: { ticketId: ticket.id },
+          update: {
+            amount: quoted.totalAmount,
             method: normalizedPaymentMethod,
-            status: 'COMPLETED',
-            cashReceived: normalizedPaymentMethod === 'CASH' ? normalizedCashReceived : null,
-            changeGiven: changeGiven > 0 ? changeGiven : null,
-            invoiceNumber: `INV-${Date.now()}`,
+            status: 'PENDING',
+            reference: session.id,
+            operatorId: tokenUser.userId,
+            shiftId,
+            parkingLotId: ticket.parkingLotId,
+          },
+          create: {
+            amount: quoted.totalAmount,
+            method: normalizedPaymentMethod,
+            status: 'PENDING',
+            reference: session.id,
             ticketId: ticket.id,
             parkingLotId: ticket.parkingLotId,
             operatorId: tokenUser.userId,
-            shiftId: activeShift?.id || null,
+            shiftId,
+            invoiceNumber: `PENDING-${Date.now()}`,
           },
         });
 
-        await tx.ticket.update({
-          where: { id: ticket.id },
-          data: {
-            status: lostTicket ? 'LOST' : 'COMPLETED',
-            exitTime: now,
-            totalHours: Math.round(pricing.totalHours * 100) / 100,
-            totalAmount,
-          },
+        await createAuditLog(tokenUser.userId, 'START_STRIPE_CHECKOUT', 'Ticket', ticket.id, {
+          paymentMethod: normalizedPaymentMethod,
+          amount: quoted.totalAmount,
+          sessionId: session.id,
         });
 
-        await setSpaceStatusWithHistory(tx, { spaceId: ticket.spaceId, toStatus: 'AVAILABLE', reason: lostTicket ? 'Salida por ticket perdido' : 'Salida completada' });
+        return NextResponse.json({
+          requiresPayment: true,
+          checkoutUrl: session.url,
+          sessionId: session.id,
+          amount: quoted.totalAmount,
+        });
+      }
 
-        if (activeShift) {
-          const method = normalizedPaymentMethod;
-          const cashAdd = method === 'CASH' ? totalAmount : 0;
-          const cardAdd = method === 'CARD' ? totalAmount : 0;
-          const digitalAdd = method === 'DIGITAL_WALLET' ? totalAmount : 0;
-          await tx.shift.update({
-            where: { id: activeShift.id },
-            data: {
-              totalCash: { increment: cashAdd },
-              totalCard: { increment: cardAdd },
-              totalDigital: { increment: digitalAdd },
-              expectedTotal: { increment: totalAmount },
-              vehiclesServed: { increment: 1 },
-            },
-          });
-        }
-
-        return { payment };
+      const result = await finalizeTicketExit({
+        ticketId: ticket.id,
+        paymentMethod: normalizedPaymentMethod,
+        operatorId: tokenUser.userId,
+        cashReceived: normalizedCashReceived,
+        lostTicket: Boolean(lostTicket),
+        invoiceNumber: `INV-${Date.now()}`,
       });
 
       await createAuditLog(tokenUser.userId, lostTicket ? 'EXIT_LOST_TICKET' : 'EXIT_TICKET', 'Ticket', ticket.id, {
         plate: ticket.vehicle.plate,
         paymentMethod: normalizedPaymentMethod,
-        amount: totalAmount,
+        amount: result.payment.amount,
       });
 
       return NextResponse.json({
-        ticket: { ...ticket, exitTime: now, totalHours: pricing.totalHours, totalAmount, status: lostTicket ? 'LOST' : 'COMPLETED' },
+        ticket: result.ticket,
         payment: result.payment,
-        pricing: lostTicket
-          ? { totalMinutes: pricing.totalMinutes, billableMinutes: pricing.billableMinutes, gracePeriod: parkingLot.gracePeriod, hourlyRate }
-          : { totalMinutes: pricing.totalMinutes, billableMinutes: pricing.billableMinutes, gracePeriod: parkingLot.gracePeriod, hourlyRate },
+        pricing: result.pricing,
       });
     }
 
