@@ -9,6 +9,37 @@ export type ApiKeyAuthResult = {
   parkingLotId: string | null;
 };
 
+function apiKeyDelegate() {
+  return (prisma as unknown as {
+    apiKey: {
+      findUnique: typeof prisma.$queryRaw;
+      update: typeof prisma.$executeRaw;
+    };
+  }).apiKey as unknown as {
+    findUnique: (args: {
+      where: { keyHash: string };
+      select: {
+        id: true;
+        name: true;
+        scopes: true;
+        isActive: true;
+        expiresAt: true;
+        createdByUserId: true;
+        parkingLotId: true;
+      };
+    }) => Promise<{
+      id: string;
+      name: string;
+      scopes: string;
+      isActive: boolean;
+      expiresAt: Date | null;
+      createdByUserId: string;
+      parkingLotId: string | null;
+    } | null>;
+    update: (args: { where: { id: string }; data: { lastUsedAt: Date } }) => Promise<unknown>;
+  };
+}
+
 function getApiKeySalt() {
   return process.env.API_KEY_SALT || process.env.JWT_SECRET || 'parkingos-api-key-salt';
 }
@@ -48,7 +79,7 @@ export async function authenticateApiKey(rawKey: string | null | undefined): Pro
   if (!token) return null;
 
   const keyHash = hashApiKey(token);
-  const apiKey = await prisma.apiKey.findUnique({
+  const apiKey = await apiKeyDelegate().findUnique({
     where: { keyHash },
     select: {
       id: true,
@@ -64,7 +95,7 @@ export async function authenticateApiKey(rawKey: string | null | undefined): Pro
   if (!apiKey || !apiKey.isActive) return null;
   if (apiKey.expiresAt && apiKey.expiresAt <= new Date()) return null;
 
-  await prisma.apiKey.update({
+  await apiKeyDelegate().update({
     where: { id: apiKey.id },
     data: { lastUsedAt: new Date() },
   }).catch(() => undefined);

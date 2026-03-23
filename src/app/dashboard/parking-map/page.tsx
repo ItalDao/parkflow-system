@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   Map as MapIcon, 
   RotateCcw,
+  ScanLine,
   X
 } from 'lucide-react';
 import { getVehicleTypeIcon } from '@/lib/utils';
@@ -38,8 +39,50 @@ export default function ParkingMapPage() {
   const [showEntry, setShowEntry] = useState(false);
   const [showExit, setShowExit] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
   const [entryForm, setEntryForm] = useState({ plate: '', vehicleType: 'CAR' });
   const [exitPaymentMethod, setExitPaymentMethod] = useState<'CASH' | 'CARD' | 'DIGITAL_WALLET'>('CASH');
+
+  const extractPlateCandidate = (rawText: string) => {
+    const normalized = String(rawText || '').toUpperCase().replace(/[^A-Z0-9]/g, ' ');
+    const compact = normalized.replace(/\s+/g, '');
+
+    const patterns = [
+      /[A-Z]{3}[0-9]{3}/g,
+      /[A-Z]{3}[0-9]{2}[A-Z]/g,
+      /[A-Z]{2}[0-9]{4}/g,
+    ];
+
+    for (const p of patterns) {
+      const match = compact.match(p);
+      if (match?.[0]) return match[0];
+    }
+
+    return '';
+  };
+
+  const handleOcrImage = async (file: File | null) => {
+    if (!file) return;
+    setOcrLoading(true);
+    try {
+      const tesseract = await import('tesseract.js');
+      const result = await tesseract.recognize(file, 'eng');
+      const candidate = extractPlateCandidate(result.data.text || '');
+
+      if (!candidate) {
+        toast('No se detectó una placa clara. Ingresa la placa manualmente.');
+        return;
+      }
+
+      setEntryForm((prev) => ({ ...prev, plate: candidate }));
+      toast.success(`Placa detectada: ${candidate}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo procesar la imagen OCR');
+    } finally {
+      setOcrLoading(false);
+    }
+  };
 
   const fetchZones = useCallback(async () => {
     try {
@@ -300,6 +343,23 @@ export default function ParkingMapPage() {
                   onChange={(e) => setEntryForm({ ...entryForm, plate: e.target.value.toUpperCase() })}
                   placeholder="ABC123"
                 />
+                <div style={{ marginTop: '10px' }}>
+                  <label className="white-card" style={{ border: 'none', padding: '10px 12px', display: 'inline-flex', gap: '8px', alignItems: 'center', cursor: ocrLoading ? 'not-allowed' : 'pointer', opacity: ocrLoading ? 0.7 : 1 }}>
+                    <ScanLine size={14} />
+                    {ocrLoading ? 'Leyendo placa…' : 'Escanear placa por OCR'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        void handleOcrImage(f);
+                        e.currentTarget.value = '';
+                      }}
+                      disabled={ocrLoading}
+                    />
+                  </label>
+                </div>
               </div>
               <div>
                 <div className="input-label" style={{ marginBottom: '8px' }}>Tipo</div>
