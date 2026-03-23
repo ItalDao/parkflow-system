@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusLabel, getVehicleTypeIcon } from '@/lib/utils';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
@@ -143,6 +144,7 @@ function buildPrintableHtml(params: { ticket: Ticket; qrDataUrl?: string | null;
 }
 
 export default function TicketsPage() {
+   const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [filter, setFilter] = useState('');
@@ -181,6 +183,18 @@ export default function TicketsPage() {
   }, [filter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+   useEffect(() => {
+      const stripeStatus = (searchParams.get('stripe') || '').toLowerCase();
+      if (stripeStatus === 'success') {
+         toast.success('Pago digital confirmado. Ticket actualizado.');
+         void fetchData();
+      }
+      if (stripeStatus === 'cancel') {
+         toast('Pago cancelado. Puedes reintentar el cobro.');
+         void fetchData();
+      }
+   }, [fetchData, searchParams]);
 
    const filteredTickets = useMemo(() => {
       const q = query.trim().toLowerCase();
@@ -300,6 +314,13 @@ export default function TicketsPage() {
             }),
       });
       if (res.ok) {
+            const data = await res.json();
+
+            if ((data as { requiresPayment?: boolean; checkoutUrl?: string }).requiresPayment && (data as { checkoutUrl?: string }).checkoutUrl) {
+               window.location.href = String((data as { checkoutUrl?: string }).checkoutUrl);
+               return;
+            }
+
             setShowExit(false);
             setExitTicket(null);
             setExitSearch('');
@@ -307,7 +328,7 @@ export default function TicketsPage() {
             setExitPaymentMethod('CASH');
             setLostTicket(false);
             setQuote(null);
-        fetchData();
+            fetchData();
          } else {
              const d = await res.json().catch(() => ({} as { error?: string }));
              toast.error((d as { error?: string }).error || 'No se pudo registrar la salida');
