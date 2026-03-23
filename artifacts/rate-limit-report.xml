@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="rate-limit-smoke" tests="2" failures="0" skipped="0" time="1.487">
-  <testcase classname="rate-limit-smoke" name="auth: returns 429 with Retry-After" time="0.733">
+<testsuite name="rate-limit-smoke" tests="2" failures="0" skipped="0" time="1.743">
+  <testcase classname="rate-limit-smoke" name="auth: returns 429 with Retry-After" time="0.074">
   </testcase>
-  <testcase classname="rate-limit-smoke" name="dashboard: returns 429 with Retry-After" time="0.754">
+  <testcase classname="rate-limit-smoke" name="dashboard: returns 429 with Retry-After" time="1.669">
   </testcase>
 </testsuite>

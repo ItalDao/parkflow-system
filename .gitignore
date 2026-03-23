@@ -53,7 +53,6 @@ next-env.d.ts
 /src/generated/prisma
 /prisma/*.db
 /prisma/*.sqlite
-/prisma/migrations/
 
 # logs
 logs

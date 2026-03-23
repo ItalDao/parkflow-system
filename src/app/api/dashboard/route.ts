@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 import { getHashedClientIp } from '@/lib/security';
-import { createRateLimiter, RateLimitRule } from '@/lib/rate-limit';
+import { createRateLimiter, getRateLimitDiagnostics, RateLimitRule } from '@/lib/rate-limit';
 import { sendTransactionalEmail } from '@/lib/email';
 import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
 import { finalizeTicketExit, quoteTicketExit } from '@/lib/ticket-exit';
@@ -296,12 +296,15 @@ export async function GET(request: NextRequest) {
         dbVersion = null;
       }
 
+      const rateLimit = await getRateLimitDiagnostics();
+
       return NextResponse.json({
         env: process.env.NODE_ENV || 'unknown',
         node: process.version,
         prisma: Prisma?.prismaVersion?.client || null,
         db: dbVersion,
         uptimeSeconds: Math.floor(process.uptime()),
+        rateLimit,
       });
     }
 

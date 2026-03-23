@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
+import { getApiKeyPrefix, hashApiKey } from '@/lib/api-keys';
 
 export async function POST() {
   try {
@@ -47,8 +48,36 @@ export async function POST() {
       }),
     ]);
 
+    const firstLot = await prisma.parkingLot.findFirst({ select: { id: true } });
+    const demoApiKeyRaw = process.env.SEED_API_KEY || 'pkos_demo_local_1234567890';
+    const demoApiKeyHash = hashApiKey(demoApiKeyRaw);
+    await prisma.apiKey.upsert({
+      where: { keyHash: demoApiKeyHash },
+      update: {
+        isActive: true,
+        scopes: 'tickets:read',
+        parkingLotId: firstLot?.id || null,
+      },
+      create: {
+        name: 'Demo API v1 key',
+        keyPrefix: getApiKeyPrefix(demoApiKeyRaw),
+        keyHash: demoApiKeyHash,
+        scopes: 'tickets:read',
+        isActive: true,
+        createdByUserId: superAdmin.id,
+        parkingLotId: firstLot?.id || null,
+      },
+    });
+
     if (hasParkingLot) {
-      return NextResponse.json({ message: 'Usuarios de prueba actualizados. El sistema ya está inicializado.' });
+      return NextResponse.json({
+        message: 'Usuarios de prueba actualizados. El sistema ya está inicializado.',
+        apiV1: {
+          endpoint: '/api/v1/tickets',
+          header: 'x-api-key',
+          demoKey: demoApiKeyRaw,
+        },
+      });
     }
 
     // Create parking lot
@@ -252,6 +281,11 @@ export async function POST() {
         spaces: 60,
         vehicles: vehicles.length,
         rates: rateData.length,
+      },
+      apiV1: {
+        endpoint: '/api/v1/tickets',
+        header: 'x-api-key',
+        demoKey: demoApiKeyRaw,
       },
     });
   } catch (error) {

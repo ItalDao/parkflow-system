@@ -24,6 +24,15 @@ export interface RateLimiterProvider {
 
 type RateLimiterBackend = 'memory' | 'redis';
 
+export type RateLimitDiagnostics = {
+  requestedBackend: RateLimiterBackend;
+  effectiveBackend: RateLimiterBackend;
+  hasRedisUrl: boolean;
+  redisConnected: boolean;
+  redisStatus: string | null;
+  fallbackReason: string | null;
+};
+
 let warnedRedisFallback = false;
 let redisClient: Redis | null = null;
 
@@ -160,4 +169,65 @@ export function createRateLimiter(
   }
 
   return new InMemoryRateLimiter(rules, options?.staleMs);
+}
+
+export async function getRateLimitDiagnostics(): Promise<RateLimitDiagnostics> {
+  const requestedBackend = ((process.env.RATE_LIMIT_BACKEND as RateLimiterBackend | undefined) || 'memory');
+  const hasRedisUrl = Boolean(process.env.REDIS_URL);
+
+  if (requestedBackend !== 'redis') {
+    return {
+      requestedBackend,
+      effectiveBackend: 'memory',
+      hasRedisUrl,
+      redisConnected: false,
+      redisStatus: null,
+      fallbackReason: null,
+    };
+  }
+
+  if (!hasRedisUrl) {
+    return {
+      requestedBackend,
+      effectiveBackend: 'memory',
+      hasRedisUrl,
+      redisConnected: false,
+      redisStatus: null,
+      fallbackReason: 'REDIS_URL missing',
+    };
+  }
+
+  const redis = getRedisClient();
+  if (!redis) {
+    return {
+      requestedBackend,
+      effectiveBackend: 'memory',
+      hasRedisUrl,
+      redisConnected: false,
+      redisStatus: null,
+      fallbackReason: 'Redis client unavailable',
+    };
+  }
+
+  try {
+    const pong = await redis.ping();
+    const connected = pong === 'PONG';
+    return {
+      requestedBackend,
+      effectiveBackend: connected ? 'redis' : 'memory',
+      hasRedisUrl,
+      redisConnected: connected,
+      redisStatus: redis.status,
+      fallbackReason: connected ? null : 'Redis ping failed',
+    };
+  } catch {
+    return {
+      requestedBackend,
+      effectiveBackend: 'memory',
+      hasRedisUrl,
+      redisConnected: false,
+      redisStatus: redis.status,
+      fallbackReason: 'Redis connection error',
+    };
+  }
 }
