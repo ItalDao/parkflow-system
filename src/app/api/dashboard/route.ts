@@ -4,6 +4,8 @@ import { verifyAccessToken } from '@/lib/auth';
 import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 import { getHashedClientIp } from '@/lib/security';
 import { createRateLimiter, RateLimitRule } from '@/lib/rate-limit';
+import { sendTransactionalEmail } from '@/lib/email';
+import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -92,127 +94,6 @@ async function createAuditLog(userId: string, action: string, entity: string, en
       }
     });
   } catch (err) { console.error('Audit log failed:', err); }
-}
-
-async function createDedupedNotification(params: {
-  userId: string;
-  title: string;
-  message: string;
-  type: string;
-  dedupeHours?: number;
-}) {
-  const dedupeHours = Number.isFinite(params.dedupeHours) ? Number(params.dedupeHours) : 24;
-  const since = new Date(Date.now() - dedupeHours * 60 * 60 * 1000);
-
-  const existing = await prisma.notification.findFirst({
-    where: {
-      userId: params.userId,
-      title: params.title,
-      message: params.message,
-      createdAt: { gte: since },
-    },
-    select: { id: true },
-  });
-
-  if (existing) return null;
-
-  return prisma.notification.create({
-    data: {
-      userId: params.userId,
-      title: params.title,
-      message: params.message,
-      type: params.type,
-    },
-  });
-}
-
-async function runSubscriptionsMaintenance(triggeredByUserId?: string) {
-  const now = new Date();
-  const reminderLimit = new Date(now);
-  reminderLimit.setDate(reminderLimit.getDate() + 7);
-
-  const expiredResult = await prisma.subscription.updateMany({
-    where: {
-      endDate: { lt: now },
-      status: { in: ['ACTIVE', 'PENDING_RENEWAL'] },
-    },
-    data: { status: 'EXPIRED' },
-  });
-
-  const pendingCandidates = await prisma.subscription.findMany({
-    where: {
-      autoRenew: false,
-      status: 'ACTIVE',
-      endDate: { gte: now, lte: reminderLimit },
-    },
-    include: {
-      user: { select: { id: true, firstName: true, email: true } },
-      vehicle: { select: { plate: true } },
-    },
-    take: 500,
-  });
-
-  for (const sub of pendingCandidates) {
-    await prisma.subscription.update({ where: { id: sub.id }, data: { status: 'PENDING_RENEWAL' } });
-    await createDedupedNotification({
-      userId: sub.user.id,
-      title: 'Suscripción por renovar',
-      message: `Tu suscripción para ${sub.vehicle.plate} vence el ${sub.endDate.toLocaleDateString('es-CO')}.`,
-      type: 'warning',
-    }).catch(() => undefined);
-  }
-
-  const dueForAutoRenew = await prisma.subscription.findMany({
-    where: {
-      autoRenew: true,
-      status: { in: ['ACTIVE', 'PENDING_RENEWAL'] },
-      endDate: { lte: now },
-    },
-    include: {
-      user: { select: { id: true, firstName: true, email: true } },
-      vehicle: { select: { plate: true } },
-    },
-    take: 500,
-  });
-
-  let renewedCount = 0;
-  for (const sub of dueForAutoRenew) {
-    const durationMs = Math.max(24 * 60 * 60 * 1000, sub.endDate.getTime() - sub.startDate.getTime());
-    const nextStart = new Date(sub.endDate);
-    const nextEnd = new Date(nextStart.getTime() + durationMs);
-
-    await prisma.subscription.update({
-      where: { id: sub.id },
-      data: {
-        startDate: nextStart,
-        endDate: nextEnd,
-        status: 'ACTIVE',
-      },
-    });
-    renewedCount += 1;
-
-    await createDedupedNotification({
-      userId: sub.user.id,
-      title: 'Suscripción renovada automáticamente',
-      message: `Renovamos tu suscripción de ${sub.vehicle.plate} hasta ${nextEnd.toLocaleDateString('es-CO')}.`,
-      type: 'info',
-    }).catch(() => undefined);
-  }
-
-  if (triggeredByUserId) {
-    await createAuditLog(triggeredByUserId, 'RUN_SUBSCRIPTION_MAINTENANCE', 'Subscription', undefined, {
-      expired: expiredResult.count,
-      pendingRenewal: pendingCandidates.length,
-      autoRenewed: renewedCount,
-    });
-  }
-
-  return {
-    processedAt: now.toISOString(),
-    expired: expiredResult.count,
-    pendingRenewal: pendingCandidates.length,
-    autoRenewed: renewedCount,
-  };
 }
 
 export async function GET(request: NextRequest) {
@@ -1388,10 +1269,46 @@ export async function POST(request: NextRequest) {
           difference: diff,
           notes: notes || null,
         },
-        include: { operator: { select: { firstName: true, lastName: true } } },
+        include: {
+          operator: { select: { firstName: true, lastName: true, email: true } },
+          parkingLot: { select: { name: true } },
+        },
       });
 
       await createAuditLog(tokenUser.userId, 'CLOSE_SHIFT', 'Shift', shiftId, { actualTotal, difference: diff, notes });
+
+      if (shift.operator?.email) {
+        const expected = existing.expectedTotal || 0;
+        const summaryText = [
+          `Hola ${shift.operator.firstName},`,
+          '',
+          `Cerraste tu turno en ${shift.parkingLot?.name || 'ParkingOS'}.`,
+          `Total esperado: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(expected)}.`,
+          `Total reportado: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(actualTotal)}.`,
+          `Diferencia: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(diff)}.`,
+          notes ? `Notas: ${notes}` : '',
+        ].filter(Boolean).join('\n');
+
+        await sendTransactionalEmail({
+          to: shift.operator.email,
+          subject: `ParkingOS - Cierre de turno (${shift.parkingLot?.name || 'Sede'})`,
+          text: summaryText,
+          html: `
+            <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+              <h2 style="margin: 0 0 12px;">Cierre de turno registrado</h2>
+              <p>Hola ${shift.operator.firstName},</p>
+              <p>Cerraste tu turno en <strong>${shift.parkingLot?.name || 'ParkingOS'}</strong>.</p>
+              <ul>
+                <li>Total esperado: <strong>${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(expected)}</strong></li>
+                <li>Total reportado: <strong>${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(actualTotal)}</strong></li>
+                <li>Diferencia: <strong>${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(diff)}</strong></li>
+              </ul>
+              ${notes ? `<p>Notas: ${String(notes)}</p>` : ''}
+            </div>
+          `,
+        }).catch(() => undefined);
+      }
+
       return NextResponse.json(shift);
     }
 
@@ -1478,7 +1395,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
 
-      const report = await runSubscriptionsMaintenance(tokenUser.userId);
+      const report = await runSubscriptionsMaintenance();
+      await createAuditLog(tokenUser.userId, 'RUN_SUBSCRIPTION_MAINTENANCE', 'Subscription', undefined, report);
       return NextResponse.json({ success: true, ...report });
     }
 
