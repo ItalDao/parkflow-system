@@ -11,7 +11,8 @@ import {
    AlertTriangle,
    X,
    RefreshCcw,
-   Ban
+   Ban,
+   Loader2
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -87,6 +88,7 @@ export default function SubscriptionsPage() {
    const [showCreate, setShowCreate] = useState(false);
    const [saving, setSaving] = useState(false);
    const [editing, setEditing] = useState<SubscriptionData | null>(null);
+   const [runningMaintenance, setRunningMaintenance] = useState(false);
 
    const [form, setForm] = useState({
       customerEmail: '',
@@ -289,6 +291,33 @@ export default function SubscriptionsPage() {
       }
    };
 
+   const runMaintenance = async () => {
+      if (!canManage) return;
+      setRunningMaintenance(true);
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ resource: 'subscriptions-maintenance' }),
+         });
+
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast.error((data as { error?: string }).error || 'No se pudo ejecutar mantenimiento');
+            return;
+         }
+
+         const data = await res.json();
+         toast.success(`Mantenimiento aplicado: ${data.autoRenewed || 0} renovadas, ${data.pendingRenewal || 0} por renovar.`);
+         await fetchData();
+      } catch (err) {
+         console.error(err);
+         toast.error('Error de conexión');
+      } finally {
+         setRunningMaintenance(false);
+      }
+   };
+
   if (loading) return <div style={{ height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="spinner" /></div>;
 
   return (
@@ -344,6 +373,12 @@ export default function SubscriptionsPage() {
                <button className="white-card" style={{ padding: '0 20px', fontSize: '13px', fontWeight: 800, border: 'none', cursor: 'pointer' }} onClick={() => void fetchData()}>
                  <RefreshCcw size={16} /> Actualizar
                </button>
+               {canManage && (
+                  <button className="white-card" style={{ padding: '0 20px', fontSize: '13px', fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => void runMaintenance()} disabled={runningMaintenance}>
+                     {runningMaintenance ? <Loader2 size={16} className="spin" /> : <RefreshCcw size={16} />}
+                     {runningMaintenance ? 'Procesando…' : 'Ejecutar Mantenimiento'}
+                  </button>
+               )}
             </div>
          </div>
 
