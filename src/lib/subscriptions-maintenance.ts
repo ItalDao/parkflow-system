@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail } from '@/lib/email';
+import { emitNotificationEvent } from '@/lib/notification-events';
+import { sendTransactionalSms } from '@/lib/sms';
 
-type SubscriptionUser = { id: string; firstName: string; email: string };
+type SubscriptionUser = { id: string; firstName: string; email: string; phone: string | null };
 type SubscriptionVehicle = { plate: string };
 
 type SubscriptionWithRelations = {
@@ -34,7 +36,7 @@ async function createDedupedNotification(params: {
 
   if (existing) return null;
 
-  return prisma.notification.create({
+  const created = await prisma.notification.create({
     data: {
       userId: params.userId,
       title: params.title,
@@ -42,6 +44,15 @@ async function createDedupedNotification(params: {
       type: params.type,
     },
   });
+
+  emitNotificationEvent({
+    userId: params.userId,
+    action: 'created',
+    notificationId: created.id,
+    at: new Date().toISOString(),
+  });
+
+  return created;
 }
 
 async function notifyPendingRenewal(sub: SubscriptionWithRelations) {
@@ -73,6 +84,13 @@ async function notifyPendingRenewal(sub: SubscriptionWithRelations) {
       </div>
     `,
   }).catch(() => undefined);
+
+  if (sub.user.phone) {
+    await sendTransactionalSms({
+      to: sub.user.phone,
+      body: `ParkingOS: ${message} Puedes renovar desde el portal.`,
+    }).catch(() => undefined);
+  }
 }
 
 async function notifyAutoRenewed(sub: SubscriptionWithRelations, nextEnd: Date) {
@@ -104,6 +122,13 @@ async function notifyAutoRenewed(sub: SubscriptionWithRelations, nextEnd: Date) 
       </div>
     `,
   }).catch(() => undefined);
+
+  if (sub.user.phone) {
+    await sendTransactionalSms({
+      to: sub.user.phone,
+      body: `ParkingOS: ${message} No se requiere accion adicional.`,
+    }).catch(() => undefined);
+  }
 }
 
 export async function runSubscriptionsMaintenance() {
@@ -126,7 +151,7 @@ export async function runSubscriptionsMaintenance() {
       endDate: { gte: now, lte: reminderLimit },
     },
     include: {
-      user: { select: { id: true, firstName: true, email: true } },
+      user: { select: { id: true, firstName: true, email: true, phone: true } },
       vehicle: { select: { plate: true } },
     },
     take: 500,
@@ -144,7 +169,7 @@ export async function runSubscriptionsMaintenance() {
       endDate: { lte: now },
     },
     include: {
-      user: { select: { id: true, firstName: true, email: true } },
+      user: { select: { id: true, firstName: true, email: true, phone: true } },
       vehicle: { select: { plate: true } },
     },
     take: 500,

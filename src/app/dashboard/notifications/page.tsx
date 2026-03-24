@@ -33,6 +33,7 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'OPERATIONAL'>('ALL');
   const [pendingClear, setPendingClear] = useState(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -41,7 +42,34 @@ export default function NotificationsPage() {
 
   useEffect(() => () => {
     if (clearTimer.current) clearTimeout(clearTimer.current);
+    if (refreshDebounce.current) clearTimeout(refreshDebounce.current);
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const source = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
+
+    const queueRefresh = () => {
+      if (refreshDebounce.current) clearTimeout(refreshDebounce.current);
+      refreshDebounce.current = setTimeout(() => {
+        fetchNotifications();
+      }, 200);
+    };
+
+    source.addEventListener('notification', queueRefresh);
+    source.addEventListener('connected', () => undefined);
+
+    source.onerror = () => {
+      // Browser automatically retries SSE connections.
+    };
+
+    return () => {
+      source.removeEventListener('notification', queueRefresh);
+      source.close();
+    };
+  }, [router]);
 
   const fetchNotifications = async () => {
     try {

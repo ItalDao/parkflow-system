@@ -6,6 +6,7 @@ import { getHashedClientIp } from '@/lib/security';
 import { createRateLimiter, getRateLimitDiagnostics, RateLimitRule } from '@/lib/rate-limit';
 import { sendTransactionalEmail } from '@/lib/email';
 import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
+import { emitNotificationEvent } from '@/lib/notification-events';
 import { finalizeTicketExit, quoteTicketExit } from '@/lib/ticket-exit';
 import { getStripeClient, isStripeEnabled, toStripeAmount } from '@/lib/stripe';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
@@ -1635,7 +1636,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.notification.create({
+        const createdNotification = await tx.notification.create({
           data: {
             userId,
             title: 'Suscripción creada',
@@ -1644,11 +1645,20 @@ export async function POST(request: NextRequest) {
           },
         }).catch(() => undefined);
 
-        return sub;
+        return { sub, createdNotification, userId };
       });
 
-      await createAuditLog(tokenUser.userId, 'CREATE_SUBSCRIPTION', 'Subscription', created.id, { email, plate, startDate, endDate, price, type: subType, autoRenew });
-      return NextResponse.json(created);
+      if (created.createdNotification?.id) {
+        emitNotificationEvent({
+          userId: created.userId,
+          action: 'created',
+          notificationId: created.createdNotification.id,
+          at: new Date().toISOString(),
+        });
+      }
+
+      await createAuditLog(tokenUser.userId, 'CREATE_SUBSCRIPTION', 'Subscription', created.sub.id, { email, plate, startDate, endDate, price, type: subType, autoRenew });
+      return NextResponse.json(created.sub);
     }
 
     // Create conversation
@@ -1774,6 +1784,14 @@ export async function PUT(request: NextRequest) {
           where: { id, userId: tokenUser.userId },
           data: { isRead: data.isRead },
         });
+
+        emitNotificationEvent({
+          userId: tokenUser.userId,
+          action: 'updated',
+          notificationId: note.id,
+          at: new Date().toISOString(),
+        });
+
         return NextResponse.json(note);
       }
 
@@ -1783,6 +1801,15 @@ export async function PUT(request: NextRequest) {
           where: { userId: tokenUser.userId, isRead: false },
           data: { isRead: true },
         });
+
+        if (result.count > 0) {
+          emitNotificationEvent({
+            userId: tokenUser.userId,
+            action: 'updated',
+            at: new Date().toISOString(),
+          });
+        }
+
         return NextResponse.json({ success: true, updated: result.count });
       }
 
@@ -2086,9 +2113,28 @@ export async function DELETE(request: NextRequest) {
     if (resource === 'notifications') {
       if (id) {
         const result = await prisma.notification.deleteMany({ where: { id, userId: tokenUser.userId } });
+
+        if (result.count > 0) {
+          emitNotificationEvent({
+            userId: tokenUser.userId,
+            action: 'deleted',
+            notificationId: id,
+            at: new Date().toISOString(),
+          });
+        }
+
         return NextResponse.json({ success: true, deleted: result.count });
       }
       const result = await prisma.notification.deleteMany({ where: { userId: tokenUser.userId } });
+
+      if (result.count > 0) {
+        emitNotificationEvent({
+          userId: tokenUser.userId,
+          action: 'deleted',
+          at: new Date().toISOString(),
+        });
+      }
+
       return NextResponse.json({ success: true, deleted: result.count });
     }
 
