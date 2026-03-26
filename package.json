@@ -15,7 +15,9 @@
     "smoke:ratelimit:strict:auto": "node -e \"process.env.RL_REPORT_FORMAT='junit'; process.env.RL_FAIL_ON_SKIPPED='true'; process.env.RL_AUTOSTART_SERVER='true'; require('./check-rate-limit.js')\"",
     "smoke:business": "node check-business-flow.js",
     "smoke:business:auto": "node -e \"process.env.BF_AUTOSTART_SERVER='true'; require('./check-business-flow.js')\"",
-    "smoke:business:junit:auto": "node -e \"process.env.BF_AUTOSTART_SERVER='true'; process.env.BF_REPORT_FORMAT='junit'; require('./check-business-flow.js')\""
+    "smoke:business:junit:auto": "node -e \"process.env.BF_AUTOSTART_SERVER='true'; process.env.BF_REPORT_FORMAT='junit'; require('./check-business-flow.js')\"",
+    "smoke:sse": "node check-realtime-sse.js",
+    "smoke:sse:auto": "node -e \"process.env.SSE_AUTOSTART_SERVER='true'; require('./check-realtime-sse.js')\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
