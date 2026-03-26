@@ -35,6 +35,9 @@ export default function NotificationsPage() {
   const [pendingClear, setPendingClear] = useState(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef(0);
+  const sourceRef = useRef<EventSource | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -44,6 +47,8 @@ export default function NotificationsPage() {
   useEffect(() => () => {
     if (clearTimer.current) clearTimeout(clearTimer.current);
     if (refreshDebounce.current) clearTimeout(refreshDebounce.current);
+    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    if (sourceRef.current) sourceRef.current.close();
   }, []);
 
   useEffect(() => {
@@ -51,7 +56,6 @@ export default function NotificationsPage() {
     if (!token) return;
 
     setLiveStatus('connecting');
-    let source: EventSource | null = null;
     let disposed = false;
 
     const queueRefresh = () => {
@@ -61,32 +65,66 @@ export default function NotificationsPage() {
       }, 200);
     };
 
+    const closeSource = () => {
+      if (!sourceRef.current) return;
+      sourceRef.current.removeEventListener('notification', queueRefresh);
+      sourceRef.current.close();
+      sourceRef.current = null;
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed) return;
+      closeSource();
+
+      const attempt = reconnectAttempts.current;
+      const delayMs = Math.min(10_000, 750 * (2 ** attempt));
+      reconnectAttempts.current = attempt + 1;
+
+      setLiveStatus('reconnecting');
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = setTimeout(() => {
+        connect();
+      }, delayMs);
+    };
+
     const connect = async () => {
+      if (disposed) return;
       try {
         const tokenResponse = await fetch('/api/auth/stream-token', {
           method: 'POST',
           headers: getAuthHeaders(),
         });
 
+        if (tokenResponse.status === 401) {
+          localStorage.removeItem('accessToken');
+          router.push('/');
+          return;
+        }
+
         if (!tokenResponse.ok) {
-          setLiveStatus('reconnecting');
+          scheduleReconnect();
           return;
         }
 
         const tokenData = (await tokenResponse.json()) as { streamToken?: string };
         if (!tokenData.streamToken || disposed) {
-          setLiveStatus('reconnecting');
+          scheduleReconnect();
           return;
         }
 
-        source = new EventSource(`/api/notifications/stream?st=${encodeURIComponent(tokenData.streamToken)}`);
+        closeSource();
+        const source = new EventSource(`/api/notifications/stream?st=${encodeURIComponent(tokenData.streamToken)}`);
+        sourceRef.current = source;
         source.addEventListener('notification', queueRefresh);
-        source.addEventListener('connected', () => setLiveStatus('connected'));
+        source.addEventListener('connected', () => {
+          reconnectAttempts.current = 0;
+          setLiveStatus('connected');
+        });
         source.onerror = () => {
-          setLiveStatus('reconnecting');
+          scheduleReconnect();
         };
       } catch {
-        setLiveStatus('reconnecting');
+        scheduleReconnect();
       }
     };
 
@@ -94,10 +132,8 @@ export default function NotificationsPage() {
 
     return () => {
       disposed = true;
-      if (source) {
-        source.removeEventListener('notification', queueRefresh);
-        source.close();
-      }
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      closeSource();
     };
   }, [router]);
 
