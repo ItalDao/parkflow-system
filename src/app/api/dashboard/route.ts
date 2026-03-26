@@ -5,6 +5,7 @@ import { calculateHourlyFractionalPricing } from '@/lib/pricing';
 import { getHashedClientIp } from '@/lib/security';
 import { createRateLimiter, getRateLimitDiagnostics, RateLimitRule } from '@/lib/rate-limit';
 import { sendTransactionalEmail } from '@/lib/email';
+import { sendTransactionalSms } from '@/lib/sms';
 import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
 import { emitNotificationEvent } from '@/lib/notification-events';
 import { finalizeTicketExit, quoteTicketExit } from '@/lib/ticket-exit';
@@ -1268,7 +1269,7 @@ export async function POST(request: NextRequest) {
           notes: notes || null,
         },
         include: {
-          operator: { select: { firstName: true, lastName: true, email: true } },
+          operator: { select: { firstName: true, lastName: true, email: true, phone: true } },
           parkingLot: { select: { name: true } },
         },
       });
@@ -1304,6 +1305,21 @@ export async function POST(request: NextRequest) {
               ${notes ? `<p>Notas: ${String(notes)}</p>` : ''}
             </div>
           `,
+        }).catch(() => undefined);
+      }
+
+      if (shift.operator?.phone) {
+        const expected = existing.expectedTotal || 0;
+        const summarySms = [
+          `ParkingOS ${shift.parkingLot?.name || ''}`.trim(),
+          `Turno cerrado. Esperado: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(expected)}.`,
+          `Reportado: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(actualTotal)}.`,
+          `Diferencia: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(diff)}.`,
+        ].join(' ');
+
+        await sendTransactionalSms({
+          to: shift.operator.phone,
+          body: summarySms,
         }).catch(() => undefined);
       }
 

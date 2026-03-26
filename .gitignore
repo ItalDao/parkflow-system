@@ -64,10 +64,6 @@ logs
 .idea/
 .zed/
 
-# Documentation & Notes
-README.md
-
-
 # Personal/Security
 credentials.json
 auth.json

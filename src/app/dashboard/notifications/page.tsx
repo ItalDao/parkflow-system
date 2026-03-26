@@ -30,6 +30,7 @@ function getAuthHeaders() {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [liveStatus, setLiveStatus] = useState<'connecting' | 'connected' | 'reconnecting'>('connecting');
   const [filter, setFilter] = useState<'ALL' | 'UNREAD' | 'CRITICAL' | 'OPERATIONAL'>('ALL');
   const [pendingClear, setPendingClear] = useState(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,6 +50,7 @@ export default function NotificationsPage() {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
+    setLiveStatus('connecting');
     const source = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
 
     const queueRefresh = () => {
@@ -59,10 +61,11 @@ export default function NotificationsPage() {
     };
 
     source.addEventListener('notification', queueRefresh);
-    source.addEventListener('connected', () => undefined);
+    source.addEventListener('connected', () => setLiveStatus('connected'));
 
     source.onerror = () => {
       // Browser automatically retries SSE connections.
+      setLiveStatus('reconnecting');
     };
 
     return () => {
@@ -194,6 +197,10 @@ export default function NotificationsPage() {
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 600 }}>
              Tienes {unreadCount} mensajes sin leer
           </p>
+          <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: liveStatus === 'connected' ? '#10b981' : liveStatus === 'reconnecting' ? '#f59e0b' : '#9ca3af' }} />
+            {liveStatus === 'connected' ? 'Canal en vivo conectado' : liveStatus === 'reconnecting' ? 'Reconectando canal en vivo...' : 'Conectando canal en vivo...'}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={markAllRead} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} disabled={unreadCount === 0}>
