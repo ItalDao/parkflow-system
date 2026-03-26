@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken, verifyNotificationStreamToken } from '@/lib/auth';
 import { createNotificationEventStream } from '@/lib/notification-events';
 
 export const runtime = 'nodejs';
@@ -8,20 +8,28 @@ export const dynamic = 'force-dynamic';
 function getTokenFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+    return { token: authHeader.slice(7), source: 'access-header' as const };
   }
 
   const { searchParams } = new URL(request.url);
-  return searchParams.get('token');
+  const streamToken = searchParams.get('st');
+  if (streamToken) {
+    return { token: streamToken, source: 'stream-query' as const };
+  }
+
+  return null;
 }
 
 export async function GET(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  if (!token) {
+  const auth = getTokenFromRequest(request);
+  if (!auth) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const user = verifyAccessToken(token);
+  const user = auth.source === 'stream-query'
+    ? verifyNotificationStreamToken(auth.token)
+    : verifyAccessToken(auth.token);
+
   if (!user) {
     return NextResponse.json({ error: 'Token invalido' }, { status: 401 });
   }

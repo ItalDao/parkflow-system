@@ -51,7 +51,8 @@ export default function NotificationsPage() {
     if (!token) return;
 
     setLiveStatus('connecting');
-    const source = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
+    let source: EventSource | null = null;
+    let disposed = false;
 
     const queueRefresh = () => {
       if (refreshDebounce.current) clearTimeout(refreshDebounce.current);
@@ -60,17 +61,43 @@ export default function NotificationsPage() {
       }, 200);
     };
 
-    source.addEventListener('notification', queueRefresh);
-    source.addEventListener('connected', () => setLiveStatus('connected'));
+    const connect = async () => {
+      try {
+        const tokenResponse = await fetch('/api/auth/stream-token', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        });
 
-    source.onerror = () => {
-      // Browser automatically retries SSE connections.
-      setLiveStatus('reconnecting');
+        if (!tokenResponse.ok) {
+          setLiveStatus('reconnecting');
+          return;
+        }
+
+        const tokenData = (await tokenResponse.json()) as { streamToken?: string };
+        if (!tokenData.streamToken || disposed) {
+          setLiveStatus('reconnecting');
+          return;
+        }
+
+        source = new EventSource(`/api/notifications/stream?st=${encodeURIComponent(tokenData.streamToken)}`);
+        source.addEventListener('notification', queueRefresh);
+        source.addEventListener('connected', () => setLiveStatus('connected'));
+        source.onerror = () => {
+          setLiveStatus('reconnecting');
+        };
+      } catch {
+        setLiveStatus('reconnecting');
+      }
     };
 
+    connect();
+
     return () => {
-      source.removeEventListener('notification', queueRefresh);
-      source.close();
+      disposed = true;
+      if (source) {
+        source.removeEventListener('notification', queueRefresh);
+        source.close();
+      }
     };
   }, [router]);
 

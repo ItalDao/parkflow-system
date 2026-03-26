@@ -35,3 +35,22 @@ export function verifyRefreshToken(token: string) {
     return null;
   }
 }
+
+type NotificationStreamTokenPayload = {
+  userId: string;
+  purpose: 'notification-stream';
+};
+
+export function generateNotificationStreamToken(payload: { userId: string }): string {
+  return jwt.sign({ userId: payload.userId, purpose: 'notification-stream' }, JWT_SECRET, { expiresIn: '90s' });
+}
+
+export function verifyNotificationStreamToken(token: string) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as NotificationStreamTokenPayload;
+    if (decoded.purpose !== 'notification-stream') return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
