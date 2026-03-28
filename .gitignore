@@ -58,6 +58,10 @@ next-env.d.ts
 logs
 *.log
 
+# block new markdown docs (sensitive). Existing tracked README.md stays.
+*.md
+!README.md
+
 # Editor folders
 .vscode/*
 !.vscode/extensions.json

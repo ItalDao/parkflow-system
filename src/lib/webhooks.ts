@@ -1,18 +1,19 @@
 import crypto from 'node:crypto';
+import type { WebhookEndpoint } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
-export async function dispatchWebhook(parkingLotId: string, event: string, payload: any) {
+export async function dispatchWebhook(parkingLotId: string, event: string, payload: unknown) {
   try {
     // 1. Encontrar webhooks activos de esta sede que escuchen este evento
-    const endpoints = await prisma.webhookEndpoint.findMany({
+    const endpoints: WebhookEndpoint[] = await prisma.webhookEndpoint.findMany({
       where: {
         parkingLotId,
         isActive: true,
       }
     });
 
-    const matchingEndpoints = endpoints.filter(ep => {
-      const events = ep.events.split(',').map(e => e.trim().toLowerCase());
+    const matchingEndpoints = endpoints.filter((ep: WebhookEndpoint) => {
+      const events = ep.events.split(',').map((e: string) => e.trim().toLowerCase());
       return events.includes('*') || events.includes(event.toLowerCase());
     });
 
@@ -25,7 +26,7 @@ export async function dispatchWebhook(parkingLotId: string, event: string, paylo
     });
 
     // 2. Disparar hooks asincrónicamente
-    const promises = matchingEndpoints.map(async (endpoint) => {
+    const promises = matchingEndpoints.map(async (endpoint: WebhookEndpoint) => {
       const signature = crypto
         .createHmac('sha256', endpoint.secret)
         .update(jsonPayload)
@@ -53,7 +54,7 @@ export async function dispatchWebhook(parkingLotId: string, event: string, paylo
     });
 
     // Fire and forget (podríamos usar await Promise.allSettled)
-    Promise.allSettled(promises);
+    void Promise.allSettled(promises);
 
   } catch (error) {
     console.error(`[webhook] Error general despachando evento ${event}:`, error);

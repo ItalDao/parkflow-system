@@ -961,9 +961,9 @@ export async function GET(request: NextRequest) {
 
     // Webhooks
     if (resource === 'webhook-endpoints') {
-      if (!contextLotId) return NextResponse.json({ error: 'Falta sede' }, { status: 400 });
+      if (!parkingLotId) return NextResponse.json({ error: 'Falta sede' }, { status: 400 });
       const hooks = await prisma.webhookEndpoint.findMany({
-        where: { parkingLotId: contextLotId },
+        where: { parkingLotId },
         orderBy: { createdAt: 'desc' }
       });
       return NextResponse.json(hooks);
