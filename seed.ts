@@ -84,6 +84,49 @@ async function main() {
       data: { plate: 'OSX-777', type: 'CAR', brand: 'BMW', model: 'M4', color: 'Austin Yellow' }
     });
 
+    console.log('📄 Adding permit-based subscriber...');
+    const permitUser = await prisma.user.create({
+      data: {
+        email: 'lucia.permit@parkingos.com',
+        password: hashedPassword,
+        firstName: 'Lucia',
+        lastName: 'Permit',
+        role: 'CUSTOMER',
+      }
+    });
+
+    const permitVehicle = await prisma.vehicle.create({
+      data: {
+        plate: 'PER-111',
+        type: 'CAR',
+        brand: 'Toyota',
+        model: 'Corolla',
+        color: 'Silver',
+        ownerId: permitUser.id,
+      }
+    });
+
+    const assignedSpace = await prisma.space.findFirst({
+      where: { zone: { parkingLotId: lot.id } },
+      orderBy: { number: 'asc' },
+    });
+
+    const now = new Date();
+    await prisma.subscription.create({
+      data: {
+        type: 'FIXED',
+        status: 'ACTIVE',
+        startDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+        endDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        price: 0,
+        autoRenew: true,
+        userId: permitUser.id,
+        vehicleId: permitVehicle.id,
+        parkingLotId: lot.id,
+        spaceId: assignedSpace?.id,
+      }
+    });
+
     console.log('✅ SYSTEM READY. SEED SUCCESSFUL.');
   } catch (error) {
     console.error('❌ SEED CRITICAL FAILURE:', error);

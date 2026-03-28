@@ -202,6 +202,8 @@ model ParkingLot {
   conversations Conversation[]
   apiKeys       ApiKey[]
   webhooks      WebhookEndpoint[]
+  subscriptions Subscription[]
+  subscriptionAccessLogs SubscriptionAccessLog[]
 
   @@map("parking_lots")
 }
@@ -234,6 +236,8 @@ model Space {
   // Relations
   tickets       Ticket[]
   statusHistory SpaceStatusHistory[]
+  subscriptions Subscription[]
+  subscriptionAccessLogs SubscriptionAccessLog[]
 
   @@unique([number, zoneId])
   @@map("spaces")
@@ -268,6 +272,7 @@ model Vehicle {
 
   tickets       Ticket[]
   subscriptions Subscription[]
+  subscriptionAccessLogs SubscriptionAccessLog[]
 
   @@map("vehicles")
 }
@@ -402,10 +407,36 @@ model Subscription {
   user      User               @relation(fields: [userId], references: [id])
   vehicleId String             @map("vehicle_id")
   vehicle   Vehicle            @relation(fields: [vehicleId], references: [id])
+  parkingLotId String          @map("parking_lot_id")
+  parkingLot   ParkingLot      @relation(fields: [parkingLotId], references: [id])
+  spaceId      String?         @map("space_id")
+  space        Space?          @relation(fields: [spaceId], references: [id])
   createdAt DateTime           @default(now()) @map("created_at")
   updatedAt DateTime           @updatedAt @map("updated_at")
 
+  // Relations
+  accessLogs SubscriptionAccessLog[]
+
   @@map("subscriptions")
+}
+
+model SubscriptionAccessLog {
+  id             String        @id @default(uuid())
+  subscriptionId String        @map("subscription_id")
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  vehicleId      String        @map("vehicle_id")
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id])
+  parkingLotId   String        @map("parking_lot_id")
+  parkingLot     ParkingLot    @relation(fields: [parkingLotId], references: [id])
+  spaceId        String?       @map("space_id")
+  space          Space?        @relation(fields: [spaceId], references: [id])
+  entryAt        DateTime      @default(now()) @map("entry_at")
+  note           String?
+
+  @@index([vehicleId])
+  @@index([parkingLotId])
+  @@index([subscriptionId])
+  @@map("subscription_access_logs")
 }
 
 // ============================================

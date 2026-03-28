@@ -257,6 +257,7 @@ export async function POST() {
         autoRenew: true,
         userId: customer1.id,
         vehicleId: createdVehicles[0].id,
+        parkingLotId: parkingLot.id,
       },
     });
 

@@ -9,6 +9,7 @@ import { sendTransactionalSms } from '@/lib/sms';
 import { runSubscriptionsMaintenance } from '@/lib/subscriptions-maintenance';
 import { emitNotificationEvent } from '@/lib/notification-events';
 import { finalizeTicketExit, quoteTicketExit } from '@/lib/ticket-exit';
+import { tryHandleSubscriptionEntry } from '@/lib/subscription-access';
 import { getStripeClient, isStripeEnabled, toStripeAmount } from '@/lib/stripe';
 import { Prisma, Role, TicketStatus, PaymentMethod } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -1067,6 +1068,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'El espacio no está disponible' }, { status: 400 });
       }
 
+      const subscriptionEntry = await tryHandleSubscriptionEntry({
+        vehicleId: vehicle.id,
+        parkingLotId: parkingLot.id,
+        requestedSpaceId: spaceId,
+        reason: `Entrada por suscripción (${normalizedPlate})`,
+      }).catch((err) => {
+        console.error('Subscription entry error:', err);
+        return { handled: false } as const;
+      });
+
+      if (subscriptionEntry.handled) {
+        await createAuditLog(tokenUser.userId, 'SUBSCRIPTION_ENTRY', 'Subscription', subscriptionEntry.subscriptionId, {
+          vehicleId: vehicle.id,
+          parkingLotId: parkingLot.id,
+          spaceId: subscriptionEntry.spaceId,
+        });
+
+        return NextResponse.json({
+          status: 'ok',
+          mode: 'subscription',
+          subscriptionId: subscriptionEntry.subscriptionId,
+          logId: subscriptionEntry.logId,
+          spaceId: subscriptionEntry.spaceId,
+        });
+      }
+
       const ticketCode = `PKG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
       const ticket = await prisma.$transaction(async (tx) => {
@@ -1615,6 +1642,7 @@ export async function POST(request: NextRequest) {
       if (!plate) return NextResponse.json({ error: 'Placa requerida' }, { status: 400 });
       if (!startDateRaw || !endDateRaw) return NextResponse.json({ error: 'Fechas requeridas' }, { status: 400 });
       if (!Number.isFinite(price) || price <= 0) return NextResponse.json({ error: 'Precio inválido' }, { status: 400 });
+      if (!contextLotId) return NextResponse.json({ error: 'parkingLotId requerido para suscripciones' }, { status: 400 });
 
       const startDate = new Date(startDateRaw);
       const endDate = new Date(endDateRaw);
@@ -1667,6 +1695,7 @@ export async function POST(request: NextRequest) {
           data: {
             userId,
             vehicleId,
+            parkingLotId: contextLotId,
             startDate,
             endDate,
             price,
