@@ -60,6 +60,8 @@ function formatUptime(seconds: number) {
   return `${m}m`;
 }
 
+import { WebhooksConfig } from '@/components/dashboard/WebhooksConfig';
+
 export default function SettingsPage() {
   const [rates, setRates] = useState<Rate[]>([]);
    const [lotDraft, setLotDraft] = useState<ParkingLotConfig | null>(null);
@@ -343,6 +345,8 @@ export default function SettingsPage() {
               </div>
             )}
          </div>
+
+         <WebhooksConfig />
 
          {/* System Telemetry */}
          <div className="glass-card" style={{ padding: '40px' }}>

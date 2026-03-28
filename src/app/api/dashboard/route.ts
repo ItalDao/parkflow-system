@@ -959,6 +959,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Webhooks
+    if (resource === 'webhook-endpoints') {
+      if (!contextLotId) return NextResponse.json({ error: 'Falta sede' }, { status: 400 });
+      const hooks = await prisma.webhookEndpoint.findMany({
+        where: { parkingLotId: contextLotId },
+        orderBy: { createdAt: 'desc' }
+      });
+      return NextResponse.json(hooks);
+    }
+
     return NextResponse.json({ error: 'Recurso no encontrado' }, { status: 404 });
   } catch (error) {
     console.error('Dashboard API error:', error);
@@ -1076,6 +1086,15 @@ export async function POST(request: NextRequest) {
       });
 
       await createAuditLog(tokenUser.userId, 'CREATE_ENTRY', 'Ticket', ticket.id, { plate: normalizedPlate, spaceId });
+      
+      const { dispatchWebhook } = await import('@/lib/webhooks');
+      void dispatchWebhook(ticket.parkingLotId, 'ticket.created', {
+        id: ticket.id,
+        ticketCode: ticket.ticketCode,
+        plate: ticket.vehicle.plate,
+        space: ticket.space.number,
+      });
+
       return NextResponse.json(ticket);
     }
 
@@ -1322,6 +1341,15 @@ export async function POST(request: NextRequest) {
           body: summarySms,
         }).catch(() => undefined);
       }
+
+      const { dispatchWebhook } = await import('@/lib/webhooks');
+      void dispatchWebhook(shift.parkingLotId, 'shift.closed', {
+        shiftId: shift.id,
+        operator: shift.operator?.firstName,
+        expectedTotal: existing.expectedTotal || 0,
+        actualTotal,
+        difference: diff,
+      });
 
       return NextResponse.json(shift);
     }
@@ -1770,6 +1798,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(msg);
     }
 
+    if (resource === 'webhook-endpoints') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      if (!contextLotId) return NextResponse.json({ error: 'Falta sede' }, { status: 400 });
+
+      const { name, url, secret, events } = body;
+      const created = await prisma.webhookEndpoint.create({
+        data: {
+          name,
+          url,
+          secret,
+          events: events || '*',
+          isActive: true,
+          parkingLotId: contextLotId,
+        }
+      });
+      await createAuditLog(tokenUser.userId, 'CREATE_WEBHOOK', 'WebhookEndpoint', created.id, { url });
+      return NextResponse.json(created);
+    }
+
     return NextResponse.json({ error: 'Recurso no válido' }, { status: 400 });
   } catch (error) {
     console.error('Dashboard POST error:', error);
@@ -2175,6 +2224,12 @@ export async function DELETE(request: NextRequest) {
     if (resource === 'tickets') {
        await prisma.ticket.delete({ where: { id } });
        await createAuditLog(tokenUser.userId, 'DELETE_TICKET', 'Ticket', id);
+       return NextResponse.json({ success: true });
+    }
+
+    if (resource === 'webhook-endpoints') {
+       await prisma.webhookEndpoint.delete({ where: { id } });
+       await createAuditLog(tokenUser.userId, 'DELETE_WEBHOOK', 'WebhookEndpoint', id);
        return NextResponse.json({ success: true });
     }
 

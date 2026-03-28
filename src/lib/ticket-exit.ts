@@ -167,14 +167,25 @@ export async function finalizeTicketExit(args: {
     return payment;
   });
 
+  const finalTicket = {
+    ...ticket,
+    exitTime: now,
+    totalHours: pricing.totalHours,
+    totalAmount,
+    status: args.lostTicket ? 'LOST' : 'COMPLETED' as const,
+  };
+
+  const { dispatchWebhook } = await import('@/lib/webhooks');
+  void dispatchWebhook(ticket.parkingLotId, 'payment.completed', {
+    ticketId: ticket.id,
+    ticketCode: ticket.ticketCode,
+    amount: totalAmount,
+    method: args.paymentMethod,
+    invoiceNumber: result.invoiceNumber
+  });
+
   return {
-    ticket: {
-      ...ticket,
-      exitTime: now,
-      totalHours: pricing.totalHours,
-      totalAmount,
-      status: args.lostTicket ? 'LOST' : 'COMPLETED',
-    },
+    ticket: finalTicket,
     payment: result,
     pricing,
   };
