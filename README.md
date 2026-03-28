@@ -50,6 +50,23 @@ Sistema de gestion de parqueadero comercial con enfoque operativo real: entradas
 | Testing E2E completo | BAJA | Playwright · k6 load testing |
 | OAuth2 Google | BAJA | Login social para clientes/operadores |
 
+## Supported use cases
+
+ParkFlow works out of the box for any staffed, pay-per-use operation:
+- Private land rented as parking (single operator)
+- Small neighborhood lots
+- Commercial garages
+- Shopping malls, hospitals, hotels, airports
+- Multi-location chains (multi-sede)
+
+## Roadmap v2 — permit-based operations
+
+The following require schema extensions (planned):
+- Residential buildings with fixed assigned spaces
+- Corporate campuses with employee permit access
+- Subscription/permit auto-validation on entry (no cashier needed)
+- Resident / employee / visitor role model
+
 ## Known Limitations
 
 - Token de autenticacion en localStorage → se planea migrar a cookies httpOnly.
