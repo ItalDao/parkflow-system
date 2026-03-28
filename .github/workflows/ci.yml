@@ -111,6 +111,9 @@ jobs:
       - name: Smoke rate-limit strict auto
         run: npm run smoke:ratelimit:strict:auto
 
+      - name: Smoke sse auto
+        run: npm run smoke:sse:auto
+
       - name: Smoke business flow auto
         run: npm run smoke:business:junit:auto
 
