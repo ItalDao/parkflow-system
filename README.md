@@ -33,7 +33,7 @@ Sistema de gestion de parqueadero comercial con enfoque operativo real: entradas
 | Auditoria | COMPLETO | Bitacora · timestamp · diff de acciones |
 | Settings | COMPLETO | Config general · tarifas · parametros |
 | Perfil de usuario | COMPLETO | Vista perfil y contexto de sesion |
-| API publica y webhooks | COMPLETO | Dispatch eventos (ticket.created, payment.completed, shift.closed) con HMAC SHA256. |
+| API publica y webhooks | PARCIAL | v1 básica: un endpoint de lectura (tickets) + 3 eventos (ticket.created, payment.completed, shift.closed), sin reintentos. |
 | Notificaciones reales | COMPLETO | Email SMTP transaccional, SMS Twilio y Webhooks push SSE. |
 
 ### Roadmap
@@ -49,6 +49,12 @@ Sistema de gestion de parqueadero comercial con enfoque operativo real: entradas
 | Internacionalizacion (i18n) | BAJA | ES · EN · PT · multi-moneda |
 | Testing E2E completo | BAJA | Playwright · k6 load testing |
 | OAuth2 Google | BAJA | Login social para clientes/operadores |
+
+## Known Limitations
+
+- Token de autenticacion en localStorage → se planea migrar a cookies httpOnly.
+- Webhook retries y proteccion contra replay aun no implementados.
+- Rate limiting solo en memoria; Redis pendiente.
 
 ## RBAC real en UI
 
