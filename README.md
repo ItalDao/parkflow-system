@@ -24,7 +24,7 @@ Sistema de gestion de parqueadero comercial con enfoque operativo real: entradas
 | Tickets (entrada / salida) | COMPLETO | QR digital · busqueda por placa · estados |
 | Turnos y operadores | COMPLETO | Apertura · cierre · cuadre de caja |
 | Pagos en caja | COMPLETO | Efectivo · calculo de tarifa · vuelto |
-| Pagos digitales (Stripe) | COMPLETO | Checkout para tarjeta/billetera + webhook de confirmacion |
+| Pagos digitales (Stripe) | PARCIAL | Checkout base habilitado; faltan reintentos, proteccion replay y facturacion PDF |
 | Reportes | COMPLETO | Ocupacion · ingresos · exportacion CSV |
 | Gestion de usuarios | COMPLETO | CRUD · asignacion de roles · sede |
 | Suscripciones mensuales | COMPLETO | Renovacion manual + mantenimiento automatico |
@@ -66,9 +66,15 @@ ParkFlow works out of the box for any staffed, pay-per-use operation:
 
 ✅ Completado: espacios asignados, auto-validacion de permisos en entrada, y modelo de roles RESIDENT/EMPLOYEE/VISITOR.
 
-Siguientes mejoras opcionales:
+En progreso / pendiente:
+- Pagos digitales (Stripe) hardening: reintentos de webhook, replay protection, facturacion PDF.
 - Refinar flujos mobile/PWA para residentes.
 - Panel de autogestion para residentes/empleados (cambio de vehiculo, invitaciones).
+
+### Multi-lot usage (estado actual)
+- SUPER_ADMIN: si no se especifica `parkingLotId`, toma el primer lote; puede consultar lotes y forzar contexto via `parkingLotId` en endpoints/dashboard.
+- ADMIN: queda fijado a su sede asignada; sin selector visual de sede.
+- UI actual: solo algunos módulos (Users) tienen selector visible para SUPER_ADMIN; no hay selector global aún. Plan: agregar selector global de sede y persistencia por usuario.
 
 ## Known Limitations
 
