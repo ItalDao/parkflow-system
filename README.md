@@ -28,6 +28,9 @@ Sistema de gestion de parqueadero comercial con enfoque operativo real: entradas
 | Reportes | COMPLETO | Ocupacion · ingresos · exportacion CSV |
 | Gestion de usuarios | COMPLETO | CRUD · asignacion de roles · sede |
 | Suscripciones mensuales | COMPLETO | Renovacion manual + mantenimiento automatico |
+| Permisos residentes/empleados/visitantes | COMPLETO | Roles RESIDENT/EMPLOYEE/VISITOR documentados |
+| Validacion de permisos en entrada | COMPLETO | Auto-ingreso si suscripcion activa (RESIDENT/EMPLOYEE); VISITOR sigue flujo pago |
+| Espacios asignados y reservados | COMPLETO | Reserva fija por usuario, se libera a RESERVED al salir |
 | Notificaciones en tiempo real | COMPLETO | SSE por usuario + actualizacion live en centro de notificaciones |
 | API publica v1 | COMPLETO | Endpoint de tickets con API key y scopes |
 | Auditoria | COMPLETO | Bitacora · timestamp · diff de acciones |
@@ -61,11 +64,11 @@ ParkFlow works out of the box for any staffed, pay-per-use operation:
 
 ## Roadmap v2 — permit-based operations
 
-The following require schema extensions (planned):
-- Residential buildings with fixed assigned spaces
-- Corporate campuses with employee permit access
-- Subscription/permit auto-validation on entry (no cashier needed)
-- Resident / employee / visitor role model
+✅ Completado: espacios asignados, auto-validacion de permisos en entrada, y modelo de roles RESIDENT/EMPLOYEE/VISITOR.
+
+Siguientes mejoras opcionales:
+- Refinar flujos mobile/PWA para residentes.
+- Panel de autogestion para residentes/empleados (cambio de vehiculo, invitaciones).
 
 ## Known Limitations
 
@@ -78,6 +81,10 @@ The following require schema extensions (planned):
 - SUPER_ADMIN: acceso total, incluyendo Usuarios, Auditoria, Settings, Pagos y Gestion.
 - ADMIN: acceso operativo/administrativo de su sede, sin capacidades globales de super admin.
 - OPERATOR: Tickets, Turnos, Mapa, Mensajes, Notificaciones. Sin finanzas/admin global.
+- RESIDENT: Permiso fijo; si tiene suscripcion activa, ingresa sin cajero al espacio asignado.
+- EMPLOYEE: Permiso de campus; si tiene suscripcion activa, ingresa sin cajero a su espacio asignado.
+- VISITOR: Flujo normal de ticket pagado; sin bypass de cajero.
+- CUSTOMER: Cliente estandar (suscripciones o pago puntual), sin privilegios operativos.
 
 > [!NOTE]
 > Ademas del filtro visual en UI, el endpoint [src/app/api/dashboard/route.ts](src/app/api/dashboard/route.ts) valida permisos por recurso.

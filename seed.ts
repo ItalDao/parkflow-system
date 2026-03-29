@@ -13,7 +13,9 @@ async function main() {
   try {
     console.log('🧹 Wiping core systems...');
     // Absolute Wipe with correct priority
+    await prisma.auditLog.deleteMany();
     await prisma.notification.deleteMany();
+    await prisma.apiKey.deleteMany();
     await prisma.payment.deleteMany();
     await prisma.ticket.deleteMany();
     await prisma.subscription.deleteMany();
