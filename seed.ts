@@ -127,6 +127,10 @@ async function main() {
       }
     });
 
+    if (assignedSpace) {
+      await prisma.space.update({ where: { id: assignedSpace.id }, data: { assignedUserId: permitUser.id, status: 'RESERVED' } });
+    }
+
     console.log('✅ SYSTEM READY. SEED SUCCESSFUL.');
   } catch (error) {
     console.error('❌ SEED CRITICAL FAILURE:', error);

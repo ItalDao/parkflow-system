@@ -24,7 +24,7 @@ async function setSpaceStatusWithHistory(
 export async function quoteTicketExit(args: { ticketId: string; lostTicket?: boolean }) {
   const ticket = await prisma.ticket.findUnique({
     where: { id: args.ticketId },
-    include: { vehicle: true, space: { include: { zone: true } } },
+     include: { vehicle: true, space: { include: { zone: true, assignedUser: { select: { id: true } } } } },
   });
 
   if (!ticket || ticket.status !== 'ACTIVE') {
@@ -142,11 +142,13 @@ export async function finalizeTicketExit(args: {
       },
     });
 
-    await setSpaceStatusWithHistory(tx, {
-      spaceId: ticket.spaceId,
-      toStatus: 'AVAILABLE',
-      reason: args.lostTicket ? 'Salida por ticket perdido' : 'Salida completada',
-    });
+      const nextStatus: 'AVAILABLE' | 'RESERVED' = ticket.space.assignedUser ? 'RESERVED' : 'AVAILABLE';
+
+      await setSpaceStatusWithHistory(tx, {
+        spaceId: ticket.spaceId,
+        toStatus: nextStatus,
+        reason: args.lostTicket ? 'Salida por ticket perdido' : 'Salida completada',
+      });
 
     if (shiftId) {
       const cashAdd = args.paymentMethod === 'CASH' ? totalAmount : 0;

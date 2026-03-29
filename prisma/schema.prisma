@@ -130,6 +130,7 @@ model User {
   sentMessages             Message[]                 @relation("MessageSender")
   refreshTokens            RefreshToken[]
   apiKeysCreated           ApiKey[]
+  assignedSpaces           Space[]
 
   @@map("users")
 }
@@ -230,6 +231,8 @@ model Space {
   floor     Int         @default(1)
   zoneId    String      @map("zone_id")
   zone      Zone        @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  assignedUserId String?   @map("assigned_user_id")
+  assignedUser   User?     @relation(fields: [assignedUserId], references: [id])
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 

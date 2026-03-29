@@ -12,6 +12,7 @@ type SubscriptionEntryParams = {
   parkingLotId: string;
   requestedSpaceId?: string | null;
   reason?: string;
+  assignedSpaceId?: string | null;
 };
 
 async function setSpaceStatusWithHistory(
@@ -52,7 +53,7 @@ export async function tryHandleSubscriptionEntry(params: SubscriptionEntryParams
   if (!subscription) return { handled: false };
 
   // Prefer fixed assigned space from subscription; otherwise use requested space (if any)
-  const targetSpaceId = subscription.spaceId ?? params.requestedSpaceId ?? null;
+  const targetSpaceId = params.assignedSpaceId ?? subscription.spaceId ?? params.requestedSpaceId ?? null;
 
   const { logId, resolvedSpaceId } = await prisma.$transaction(async (tx) => {
     let resolvedSpaceId = targetSpaceId;
@@ -65,7 +66,7 @@ export async function tryHandleSubscriptionEntry(params: SubscriptionEntryParams
         throw new Error('El espacio no pertenece a la sede de la suscripción');
       }
 
-      const toStatus: SpaceTransitionStatus = subscription.spaceId ? 'RESERVED' : 'OCCUPIED';
+      const toStatus: SpaceTransitionStatus = 'OCCUPIED';
       await setSpaceStatusWithHistory(tx, {
         spaceId: resolvedSpaceId,
         toStatus,

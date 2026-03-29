@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 
 interface Space {
   id: string; number: string; status: string;
+  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null } | null;
   tickets?: Array<{ id: string; ticketCode: string; entryTime: string; vehicle: { plate: string; type: string } }>;
 }
 
@@ -177,6 +178,7 @@ export default function DashboardPage() {
              {currentZone?.spaces.map((space) => {
                const isOccupied = space.status === 'OCCUPIED';
                const isSelected = selectedSpace?.id === space.id;
+               const ownerLabel = space.assignedUser ? `${space.assignedUser.firstName} ${space.assignedUser.lastName}` : null;
                return (
                  <div key={space.id} 
                     onClick={() => setSelectedSpace(space)}
@@ -198,6 +200,7 @@ export default function DashboardPage() {
                      <div style={{ width: '36px', height: '36px', border: '2px dashed #e2e8f0', borderRadius: '8px', background: space.status === 'RESERVED' ? 'rgba(233, 185, 73, 0.1)' : 'transparent' }} />
                    )}
                    <span style={{ fontSize: '13px', fontWeight: 900, color: isOccupied ? 'var(--text-primary)' : 'var(--text-muted)' }}>{space.number}</span>
+                   {ownerLabel && <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>{ownerLabel}</span>}
                  </div>
                );
              })}
@@ -240,8 +243,8 @@ export default function DashboardPage() {
                  <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
                       <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Espacio {selectedSpace.number}</h3>
-                      <span className={`badge ${selectedSpace.status === 'OCCUPIED' ? 'badge-danger' : 'badge-success'}`}>
-                         {selectedSpace.status === 'OCCUPIED' ? 'OCUPADO' : 'DISPONIBLE'}
+                       <span className={`badge ${selectedSpace.status === 'OCCUPIED' ? 'badge-danger' : selectedSpace.status === 'RESERVED' ? 'badge-warning' : 'badge-success'}`}>
+                         {selectedSpace.status === 'OCCUPIED' ? 'OCUPADO' : selectedSpace.status === 'RESERVED' ? 'RESERVADO' : 'DISPONIBLE'}
                       </span>
                     </div>
 
@@ -279,7 +282,9 @@ export default function DashboardPage() {
                       </>
                     ) : (
                       <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '24px' }}>El espacio está libre para un nuevo vehículo.</p>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '24px' }}>
+                          {selectedSpace.assignedUser ? `Reservado para ${selectedSpace.assignedUser.firstName} ${selectedSpace.assignedUser.lastName}.` : 'El espacio está libre para un nuevo vehículo.'}
+                        </p>
                          <button 
                            onClick={() => setShowEntryModal(true)}
                            className="btn-primary" style={{ padding: '14px 40px', fontWeight: 900 }}>

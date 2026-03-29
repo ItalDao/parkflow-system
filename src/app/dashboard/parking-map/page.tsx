@@ -24,6 +24,7 @@ type TicketLite = {
 interface Space {
   id: string; number: string; status: string; floor: number;
   tickets: TicketLite[];
+  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null } | null;
 }
 
 interface Zone {
@@ -106,10 +107,10 @@ export default function ParkingMapPage() {
   const currentZone = zones.find(z => z.id === activeZoneId);
   const totalSpaces = zones.reduce((a, z) => a + z.spaces.length, 0);
   const occupiedSpaces = zones.reduce((a, z) => a + z.spaces.filter(s => s.status === 'OCCUPIED').length, 0);
-  const availableSpaces = totalSpaces - occupiedSpaces;
+  const availableSpaces = zones.reduce((a, z) => a + z.spaces.filter(s => s.status === 'AVAILABLE').length, 0);
 
   const selectedTicket = selectedSpace?.tickets?.[0] || null;
-  const canEntry = selectedSpace?.status === 'AVAILABLE';
+  const canEntry = selectedSpace?.status === 'AVAILABLE' || selectedSpace?.status === 'RESERVED';
   const canExit = selectedSpace?.status === 'OCCUPIED' && !!selectedTicket;
 
   const handleRegister = () => {
@@ -219,6 +220,7 @@ export default function ParkingMapPage() {
              {currentZone?.spaces.map((space) => {
                const vehicle = space.tickets?.[0]?.vehicle;
                const isSelected = selectedSpace?.id === space.id;
+                const ownerLabel = space.assignedUser ? `${space.assignedUser.firstName} ${space.assignedUser.lastName}` : null;
                return (
                  <div key={space.id} 
                     onClick={() => setSelectedSpace(space)}
@@ -242,6 +244,11 @@ export default function ParkingMapPage() {
                      }} />
                    )}
                    <span style={{ fontSize: '12px', fontWeight: 900, color: space.status === 'AVAILABLE' ? '#cbd5e1' : 'var(--text-primary)' }}>{space.number}</span>
+                  {ownerLabel && (
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
+                      {ownerLabel}
+                    </span>
+                  )}
                  </div>
                );
              })}
@@ -299,6 +306,12 @@ export default function ParkingMapPage() {
                       <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>NIVEL</span>
                       <span style={{ fontSize: '13px', fontWeight: 900 }}>Piso {selectedSpace.floor}</span>
                    </div>
+                  {selectedSpace.assignedUser && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'white' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Asignado a</span>
+                      <span style={{ fontSize: '13px', fontWeight: 900 }}>{selectedSpace.assignedUser.firstName} {selectedSpace.assignedUser.lastName}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button

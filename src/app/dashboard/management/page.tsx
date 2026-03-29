@@ -24,6 +24,7 @@ type Zone = {
    name: string;
    type: string;
    _count?: { spaces: number };
+   spaces?: Array<{ id: string; number: string; status: string; assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null } | null }>;
 };
 
 type Rate = {
@@ -60,6 +61,13 @@ type Subscription = {
    vehicle: { plate: string; type: string; brand?: string | null };
 };
 
+type UserLite = {
+   id: string;
+   firstName: string;
+   lastName: string;
+   email: string;
+};
+
 function safeDecodeJwt(token: string | null): { role?: Role; userId?: string } {
    try {
       if (!token) return {};
@@ -82,6 +90,8 @@ export default function ManagementPage() {
    const [rates, setRates] = useState<Rate[]>([]);
    const [lots, setLots] = useState<ParkingLot[]>([]);
    const [customers, setCustomers] = useState<Subscription[]>([]);
+   const [users, setUsers] = useState<UserLite[]>([]);
+   const [assignDraft, setAssignDraft] = useState<{ spaceId: string; userId: string }>({ spaceId: '', userId: '' });
    const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
    const [lotDetails, setLotDetails] = useState<ParkingLot | null>(null);
    const [configDraft, setConfigDraft] = useState<{ gracePeriod: string; lostTicketFee: string }>({
@@ -157,6 +167,14 @@ export default function ManagementPage() {
       []
    );
 
+   const spaceOptions = useMemo(
+      () => zones.flatMap(z => (z.spaces || []).map(s => ({
+         value: s.id,
+         label: `${z.name} · ${s.number} (${s.status})${s.assignedUser ? ` · ${s.assignedUser.firstName} ${s.assignedUser.lastName}` : ''}`
+      }))),
+      [zones]
+   );
+
    const loadLotsAndContext = async () => {
       setLoading(true);
       try {
@@ -183,11 +201,12 @@ export default function ManagementPage() {
          localStorage.setItem('mgmtSelectedLotId', nextLotId);
 
          const query = `&parkingLotId=${encodeURIComponent(nextLotId)}`;
-         const [zRes, rRes, pRes, cRes] = await Promise.all([
+         const [zRes, rRes, pRes, cRes, uRes] = await Promise.all([
             fetch(`/api/dashboard?resource=zones${query}`, { headers }),
             fetch(`/api/dashboard?resource=rates${query}`, { headers }),
             fetch(`/api/dashboard?resource=parking-lot${query}`, { headers }),
             fetch('/api/dashboard?resource=subscriptions', { headers }),
+            canManage ? fetch(`/api/dashboard?resource=users${query}`, { headers }) : Promise.resolve({ ok: false } as Response),
          ]);
 
          if (zRes.ok) setZones(await zRes.json());
@@ -198,6 +217,7 @@ export default function ManagementPage() {
             setConfigDraft({ gracePeriod: String(lot?.gracePeriod ?? 15), lostTicketFee: String(lot?.lostTicketFee ?? 50000) });
          }
          if (cRes.ok) setCustomers(await cRes.json());
+         if (uRes.ok) setUsers(await uRes.json());
       } catch (err) {
          console.error(err);
       } finally {
@@ -209,10 +229,11 @@ export default function ManagementPage() {
       try {
          const headers = authHeaders();
          const query = `&parkingLotId=${encodeURIComponent(lotId)}`;
-         const [zRes, rRes, pRes] = await Promise.all([
+         const [zRes, rRes, pRes, uRes] = await Promise.all([
             fetch(`/api/dashboard?resource=zones${query}`, { headers }),
             fetch(`/api/dashboard?resource=rates${query}`, { headers }),
             fetch(`/api/dashboard?resource=parking-lot${query}`, { headers }),
+            canManage ? fetch(`/api/dashboard?resource=users${query}`, { headers }) : Promise.resolve({ ok: false } as Response),
          ]);
          if (zRes.ok) setZones(await zRes.json());
          if (rRes.ok) setRates(await rRes.json());
@@ -221,6 +242,7 @@ export default function ManagementPage() {
             setLotDetails(lot);
             setConfigDraft({ gracePeriod: String(lot?.gracePeriod ?? 15), lostTicketFee: String(lot?.lostTicketFee ?? 50000) });
          }
+         if (uRes.ok) setUsers(await uRes.json());
       } catch (err) {
          console.error(err);
       }
@@ -346,6 +368,59 @@ export default function ManagementPage() {
          }
 
          setShowCreateRate(false);
+         await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         toast.error('Error de conexión');
+      }
+   };
+
+   const handleAssignSpace = async () => {
+      if (!canManage) return toast.error('Operación restringida a administradores');
+      if (!selectedLotId) return toast.error('Selecciona una sede');
+      if (!assignDraft.spaceId || !assignDraft.userId) {
+         toast.error('Selecciona espacio y usuario');
+         return;
+      }
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resource: 'assign-space', spaceId: assignDraft.spaceId, userId: assignDraft.userId, parkingLotId: selectedLotId }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast.error(data.error || 'No se pudo asignar el espacio');
+            return;
+         }
+         toast.success('Espacio asignado');
+         await reloadContext(selectedLotId);
+      } catch (err) {
+         console.error(err);
+         toast.error('Error de conexión');
+      }
+   };
+
+   const handleUnassignSpace = async () => {
+      if (!canManage) return toast.error('Operación restringida a administradores');
+      if (!selectedLotId) return toast.error('Selecciona una sede');
+      if (!assignDraft.spaceId) {
+         toast.error('Selecciona un espacio');
+         return;
+      }
+      try {
+         const res = await fetch('/api/dashboard', {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resource: 'unassign-space', spaceId: assignDraft.spaceId, parkingLotId: selectedLotId }),
+         });
+         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast.error(data.error || 'No se pudo liberar el espacio');
+            return;
+         }
+         toast.success('Espacio liberado');
+         setAssignDraft(d => ({ ...d, userId: '' }));
          await reloadContext(selectedLotId);
       } catch (err) {
          console.error(err);
@@ -596,6 +671,26 @@ export default function ManagementPage() {
       <div className="glass-card" style={{ padding: '40px' }}>
          {activeTab === 'zones' && (
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                   {canManage && (
+                      <div className="white-card" style={{ padding: '24px', gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '2fr 2fr auto auto', gap: '12px', alignItems: 'end' }}>
+                         <div>
+                            <div className="input-label" style={{ marginBottom: '6px' }}>Espacio</div>
+                            <select className="input-field" value={assignDraft.spaceId} onChange={e => setAssignDraft({ ...assignDraft, spaceId: e.target.value })}>
+                               <option value="">Selecciona un espacio</option>
+                               {spaceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                         </div>
+                         <div>
+                            <div className="input-label" style={{ marginBottom: '6px' }}>Usuario / Inquilino</div>
+                            <select className="input-field" value={assignDraft.userId} onChange={e => setAssignDraft({ ...assignDraft, userId: e.target.value })}>
+                               <option value="">Selecciona usuario</option>
+                               {users.map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.email}</option>)}
+                            </select>
+                         </div>
+                         <button className="btn-primary" style={{ padding: '0 16px', height: '44px' }} onClick={handleAssignSpace}>Asignar</button>
+                         <button className="white-card" style={{ padding: '0 16px', height: '44px', border: 'none', color: 'var(--accent-danger)', fontWeight: 800 }} onClick={handleUnassignSpace}>Liberar</button>
+                      </div>
+                   )}
              {zones.length === 0 && (
                <div className="white-card" style={{ padding: '32px' }}>
                  <h4 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '6px' }}>Sin zonas</h4>

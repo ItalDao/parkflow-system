@@ -151,7 +151,21 @@ export async function GET(request: NextRequest) {
           })
         : await prisma.parkingLot.findFirst({
         include: {
-          zones: { include: { spaces: true } },
+          zones: {
+            include: {
+              spaces: {
+                include: {
+                  tickets: {
+                    where: { status: 'ACTIVE' },
+                    include: { vehicle: true },
+                    take: 1,
+                  },
+                  assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+                },
+              },
+              _count: { select: { spaces: true } },
+            },
+          },
           tickets: { where: { status: 'ACTIVE' } },
         },
       });
@@ -326,6 +340,7 @@ export async function GET(request: NextRequest) {
                     include: { vehicle: true },
                     take: 1,
                   },
+                      assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
                 },
               },
               _count: { select: { spaces: true } },
@@ -1014,6 +1029,84 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Operación restringida a Administradores' }, { status: 403 });
     }
 
+    if (resource === 'assign-space' || resource === 'unassign-space') {
+      if (tokenUser.role !== 'SUPER_ADMIN' && tokenUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Solo Administradores pueden asignar espacios' }, { status: 403 });
+      }
+
+      const { spaceId, userId } = body;
+      if (!spaceId) return NextResponse.json({ error: 'spaceId requerido' }, { status: 400 });
+      if (resource === 'assign-space' && !userId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 });
+
+      const space = await prisma.space.findUnique({
+        where: { id: spaceId },
+        select: {
+          id: true,
+          status: true,
+          assignedUserId: true,
+          zone: { select: { parkingLotId: true, name: true } },
+        },
+      });
+      if (!space) return NextResponse.json({ error: 'Espacio no encontrado' }, { status: 404 });
+      if (contextLotId && space.zone.parkingLotId !== contextLotId) {
+        return NextResponse.json({ error: 'No autorizado para esta sede' }, { status: 403 });
+      }
+
+      if (resource === 'assign-space') {
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, firstName: true, lastName: true } });
+        if (!user) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+
+        const newStatus = space.status === 'OCCUPIED' ? 'OCCUPIED' : 'RESERVED';
+
+        const updated = await prisma.$transaction(async (tx) => {
+          await tx.space.update({ where: { id: spaceId }, data: { assignedUserId: userId } });
+          if (space.status !== newStatus) {
+            await setSpaceStatusWithHistory(tx, { spaceId, toStatus: newStatus, reason: 'Asignación de espacio' });
+          }
+          return tx.space.findUnique({
+            where: { id: spaceId },
+            select: {
+              id: true,
+              number: true,
+              status: true,
+              assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+            },
+          });
+        });
+
+        await createAuditLog(tokenUser.userId, 'ASSIGN_SPACE', 'Space', spaceId, {
+          assignedUserId: userId,
+          parkingLotId: space.zone.parkingLotId,
+        });
+
+        return NextResponse.json(updated);
+      }
+
+      const newStatus = space.status === 'OCCUPIED' ? 'OCCUPIED' : 'AVAILABLE';
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.space.update({ where: { id: spaceId }, data: { assignedUserId: null } });
+        if (space.status !== newStatus) {
+          await setSpaceStatusWithHistory(tx, { spaceId, toStatus: newStatus, reason: 'Liberación de espacio' });
+        }
+        return tx.space.findUnique({
+          where: { id: spaceId },
+          select: {
+            id: true,
+            number: true,
+            status: true,
+            assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        });
+      });
+
+      await createAuditLog(tokenUser.userId, 'UNASSIGN_SPACE', 'Space', spaceId, {
+        parkingLotId: space.zone.parkingLotId,
+        previousAssignedUserId: space.assignedUserId,
+      });
+
+      return NextResponse.json(updated);
+    }
+
     // Booking Logic for Reservation Module
     if (resource === 'booking') {
       const { plate, vehicleType, arriveTime, exitTime, spaceId } = body;
@@ -1062,16 +1155,47 @@ export async function POST(request: NextRequest) {
       const parkingLot = parkingLotId ? await prisma.parkingLot.findUnique({ where: { id: parkingLotId } }) : null;
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
 
-      const space = await prisma.space.findUnique({ where: { id: spaceId }, select: { status: true } });
+      const ownerId = vehicle.ownerId ?? null;
+
+      const assignedSpaceForOwner = ownerId
+        ? await prisma.space.findFirst({ where: { assignedUserId: ownerId, zone: { parkingLotId: parkingLot.id } }, select: { id: true, status: true } })
+        : null;
+
+      const effectiveSpaceId: string | null = assignedSpaceForOwner?.id ?? spaceId ?? null;
+      if (!effectiveSpaceId) return NextResponse.json({ error: 'spaceId requerido' }, { status: 400 });
+
+      const space = await prisma.space.findUnique({
+        where: { id: effectiveSpaceId },
+        select: {
+          id: true,
+          status: true,
+          assignedUser: { select: { id: true, firstName: true, lastName: true } },
+          zone: { select: { parkingLotId: true } },
+        },
+      });
       if (!space) return NextResponse.json({ error: 'Espacio no encontrado' }, { status: 404 });
-      if (space.status !== 'AVAILABLE' && space.status !== 'RESERVED') {
+      if (space.zone.parkingLotId !== parkingLot.id) {
+        return NextResponse.json({ error: 'El espacio no pertenece a esta sede' }, { status: 403 });
+      }
+
+      if (space.assignedUser) {
+        if (!ownerId || space.assignedUser.id !== ownerId) {
+          return NextResponse.json({ error: 'Espacio asignado a otro usuario' }, { status: 403 });
+        }
+      }
+
+      if (space.status === 'OCCUPIED') {
+        return NextResponse.json({ error: 'El espacio está ocupado' }, { status: 400 });
+      }
+      if (space.status === 'OUT_OF_SERVICE' || space.status === 'MAINTENANCE') {
         return NextResponse.json({ error: 'El espacio no está disponible' }, { status: 400 });
       }
 
       const subscriptionEntry = await tryHandleSubscriptionEntry({
         vehicleId: vehicle.id,
         parkingLotId: parkingLot.id,
-        requestedSpaceId: spaceId,
+        requestedSpaceId: effectiveSpaceId,
+        assignedSpaceId: assignedSpaceForOwner?.id ?? null,
         reason: `Entrada por suscripción (${normalizedPlate})`,
       }).catch((err) => {
         console.error('Subscription entry error:', err);
@@ -1101,14 +1225,14 @@ export async function POST(request: NextRequest) {
           data: {
             ticketCode,
             vehicleId: vehicle.id,
-            spaceId,
+            spaceId: effectiveSpaceId,
             parkingLotId: parkingLot.id,
             operatorId: tokenUser.userId,
           },
           include: { vehicle: true, space: { include: { zone: true } } },
         });
 
-        await setSpaceStatusWithHistory(tx, { spaceId, toStatus: 'OCCUPIED', reason: `Entrada ${normalizedPlate}` });
+        await setSpaceStatusWithHistory(tx, { spaceId: effectiveSpaceId, toStatus: 'OCCUPIED', reason: `Entrada ${normalizedPlate}` });
         return created;
       });
 
