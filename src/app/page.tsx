@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogIn, Database, Loader2, ParkingCircle, Mail, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -13,7 +13,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
   const router = useRouter();
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -61,7 +68,9 @@ export default function LoginPage() {
       setError('Error de conexión');
       toast.error('Error de conexión');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -220,8 +229,9 @@ export default function LoginPage() {
               boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
             }}
           >
-            {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
-            Acceder al Panel
+            <Loader2 className={!loading ? 'hidden' : 'animate-spin'} size={18} />
+            <LogIn className={loading ? 'hidden' : ''} size={18} />
+            <span aria-live="polite">Acceder al Panel</span>
           </button>
 
         </form>
