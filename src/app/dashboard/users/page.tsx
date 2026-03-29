@@ -54,10 +54,14 @@ function parseLots(data: unknown): ParkingLotOption[] {
    return out;
 }
 
-const roleBadge: Record<string, { label: string; cls: string; desc: string }> = {
-  SUPER_ADMIN: { label: 'Super Admin', cls: 'badge-purple', desc: 'Control total' },
-  ADMIN: { label: 'Admin', cls: 'badge-info', desc: 'Gestión de sede' },
-  OPERATOR: { label: 'Operador', cls: 'badge-success', desc: 'Solo cabina' },
+const roleBadge: Record<string, { label: string; cls: string; desc: string; color?: string; bg?: string }> = {
+   SUPER_ADMIN: { label: 'Super Admin', cls: 'badge-purple', desc: 'Control total', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)' },
+   ADMIN: { label: 'Admin', cls: 'badge-info', desc: 'Gestión de sede', color: '#0f172a', bg: 'rgba(15, 23, 42, 0.08)' },
+   OPERATOR: { label: 'Operador', cls: 'badge-success', desc: 'Solo cabina', color: '#15803d', bg: 'rgba(21, 128, 61, 0.12)' },
+   RESIDENT: { label: 'Residente', cls: 'badge-info', desc: 'Permiso fijo', color: '#1d4ed8', bg: 'rgba(37, 99, 235, 0.12)' },
+   EMPLOYEE: { label: 'Empleado', cls: 'badge-success', desc: 'Staff habilitado', color: '#0f766e', bg: 'rgba(15, 118, 110, 0.12)' },
+   VISITOR: { label: 'Visitante', cls: 'badge-neutral', desc: 'Flujo pago', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.14)' },
+   CUSTOMER: { label: 'Cliente', cls: 'badge-neutral', desc: 'Suscriptor / pago', color: '#334155', bg: 'rgba(51, 65, 85, 0.12)' },
 };
 
 export default function UsersPage() {
@@ -319,11 +323,26 @@ export default function UsersPage() {
                           </div>
                        </td>
                        <td style={{ fontSize: '14px', fontWeight: 700 }}>{u.email}</td>
-                       <td>
-                          <span className="badge badge-info" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: 800 }}>
-                             {roleBadge[u.role]?.label || u.role}
-                          </span>
-                       </td>
+                                  <td>
+                                       {(() => {
+                                          const meta = roleBadge[u.role] || { label: u.role, color: 'var(--text-muted)', bg: 'var(--bg-primary)' };
+                                          return (
+                                             <span
+                                                className={meta.cls}
+                                                style={{
+                                                   padding: '8px 16px',
+                                                   borderRadius: '12px',
+                                                   fontSize: '11px',
+                                                   fontWeight: 800,
+                                                   color: meta.color || 'var(--text-primary)',
+                                                   background: meta.bg || 'transparent',
+                                                }}
+                                             >
+                                                {meta.label}
+                                             </span>
+                                          );
+                                       })()}
+                                  </td>
                        <td style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>
                          {u.parkingLot?.name || u.assignedLot?.name || '—'}
                        </td>

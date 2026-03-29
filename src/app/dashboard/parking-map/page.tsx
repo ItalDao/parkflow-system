@@ -24,7 +24,7 @@ type TicketLite = {
 interface Space {
   id: string; number: string; status: string; floor: number;
   tickets: TicketLite[];
-  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null } | null;
+  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null; role?: string | null } | null;
 }
 
 interface Zone {
@@ -43,6 +43,21 @@ export default function ParkingMapPage() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [entryForm, setEntryForm] = useState({ plate: '', vehicleType: 'CAR' });
   const [exitPaymentMethod, setExitPaymentMethod] = useState<'CASH' | 'CARD' | 'DIGITAL_WALLET'>('CASH');
+
+  const roleBadge = (role?: string | null) => {
+    switch (role) {
+      case 'RESIDENT':
+        return { label: 'Residente', color: '#1d4ed8', bg: 'rgba(37, 99, 235, 0.12)' };
+      case 'EMPLOYEE':
+        return { label: 'Empleado', color: '#0f766e', bg: 'rgba(15, 118, 110, 0.12)' };
+      case 'VISITOR':
+        return { label: 'Visitante', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.14)' };
+      case 'CUSTOMER':
+        return { label: 'Cliente', color: '#334155', bg: 'rgba(51, 65, 85, 0.12)' };
+      default:
+        return { label: role || 'Rol', color: 'var(--text-muted)', bg: 'rgba(148, 163, 184, 0.16)' };
+    }
+  };
 
   const extractPlateCandidate = (rawText: string) => {
     const normalized = String(rawText || '').toUpperCase().replace(/[^A-Z0-9]/g, ' ');
@@ -220,7 +235,7 @@ export default function ParkingMapPage() {
              {currentZone?.spaces.map((space) => {
                const vehicle = space.tickets?.[0]?.vehicle;
                const isSelected = selectedSpace?.id === space.id;
-                const ownerLabel = space.assignedUser ? `${space.assignedUser.firstName} ${space.assignedUser.lastName}` : null;
+                 const ownerLabel = space.assignedUser ? `${space.assignedUser.firstName} ${space.assignedUser.lastName}` : null;
                return (
                  <div key={space.id} 
                     onClick={() => setSelectedSpace(space)}
@@ -245,9 +260,25 @@ export default function ParkingMapPage() {
                    )}
                    <span style={{ fontSize: '12px', fontWeight: 900, color: space.status === 'AVAILABLE' ? '#cbd5e1' : 'var(--text-primary)' }}>{space.number}</span>
                   {ownerLabel && (
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
-                      {ownerLabel}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>
+                        {ownerLabel}
+                      </span>
+                      {space.assignedUser?.role && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            color: roleBadge(space.assignedUser.role).color,
+                            background: roleBadge(space.assignedUser.role).bg,
+                          }}
+                        >
+                          {roleBadge(space.assignedUser.role).label}
+                        </span>
+                      )}
+                    </div>
                   )}
                  </div>
                );
@@ -307,9 +338,25 @@ export default function ParkingMapPage() {
                       <span style={{ fontSize: '13px', fontWeight: 900 }}>Piso {selectedSpace.floor}</span>
                    </div>
                   {selectedSpace.assignedUser && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'white' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'white', alignItems: 'center', gap: '12px' }}>
                       <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Asignado a</span>
-                      <span style={{ fontSize: '13px', fontWeight: 900 }}>{selectedSpace.assignedUser.firstName} {selectedSpace.assignedUser.lastName}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 900 }}>
+                        {selectedSpace.assignedUser.firstName} {selectedSpace.assignedUser.lastName}
+                        {selectedSpace.assignedUser.role && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              padding: '6px 12px',
+                              borderRadius: '999px',
+                              color: roleBadge(selectedSpace.assignedUser.role).color,
+                              background: roleBadge(selectedSpace.assignedUser.role).bg,
+                            }}
+                          >
+                            {roleBadge(selectedSpace.assignedUser.role).label}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   )}
                 </div>

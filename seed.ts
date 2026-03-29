@@ -106,10 +106,13 @@ async function main() {
       }
     });
 
-    const assignedSpace = await prisma.space.findFirst({
+    const baseSpaces = await prisma.space.findMany({
       where: { zone: { parkingLotId: lot.id } },
       orderBy: { number: 'asc' },
+      take: 8,
     });
+
+    const [assignedSpace, residentSpace, employeeSpace] = baseSpaces.filter(Boolean);
 
     const now = new Date();
     await prisma.subscription.create({
@@ -130,6 +133,107 @@ async function main() {
     if (assignedSpace) {
       await prisma.space.update({ where: { id: assignedSpace.id }, data: { assignedUserId: permitUser.id, status: 'RESERVED' } });
     }
+
+    console.log('🏘️ Adding role-specific demo users...');
+
+    const residentUser = await prisma.user.create({
+      data: {
+        email: 'residente@parkingos.com',
+        password: hashedPassword,
+        firstName: 'Ana',
+        lastName: 'Residencial',
+        role: 'RESIDENT',
+      }
+    });
+
+    const residentVehicle = await prisma.vehicle.create({
+      data: {
+        plate: 'RES-200',
+        type: 'CAR',
+        brand: 'Mazda',
+        model: 'CX-5',
+        color: 'Blue',
+        ownerId: residentUser.id,
+      }
+    });
+
+    if (residentSpace) {
+      await prisma.subscription.create({
+        data: {
+          type: 'FIXED',
+          status: 'ACTIVE',
+          startDate: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+          endDate: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000),
+          price: 0,
+          autoRenew: true,
+          userId: residentUser.id,
+          vehicleId: residentVehicle.id,
+          parkingLotId: lot.id,
+          spaceId: residentSpace.id,
+        }
+      });
+      await prisma.space.update({ where: { id: residentSpace.id }, data: { assignedUserId: residentUser.id, status: 'RESERVED' } });
+    }
+
+    const employeeUser = await prisma.user.create({
+      data: {
+        email: 'empleado@parkingos.com',
+        password: hashedPassword,
+        firstName: 'Diego',
+        lastName: 'Empleado',
+        role: 'EMPLOYEE',
+      }
+    });
+
+    const employeeVehicle = await prisma.vehicle.create({
+      data: {
+        plate: 'EMP-300',
+        type: 'CAR',
+        brand: 'Chevrolet',
+        model: 'Tracker',
+        color: 'Black',
+        ownerId: employeeUser.id,
+      }
+    });
+
+    if (employeeSpace) {
+      await prisma.subscription.create({
+        data: {
+          type: 'FIXED',
+          status: 'ACTIVE',
+          startDate: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+          endDate: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000),
+          price: 0,
+          autoRenew: false,
+          userId: employeeUser.id,
+          vehicleId: employeeVehicle.id,
+          parkingLotId: lot.id,
+          spaceId: employeeSpace.id,
+        }
+      });
+      await prisma.space.update({ where: { id: employeeSpace.id }, data: { assignedUserId: employeeUser.id, status: 'RESERVED' } });
+    }
+
+    const visitorUser = await prisma.user.create({
+      data: {
+        email: 'visitante@parkingos.com',
+        password: hashedPassword,
+        firstName: 'Paula',
+        lastName: 'Visitante',
+        role: 'VISITOR',
+      }
+    });
+
+    await prisma.vehicle.create({
+      data: {
+        plate: 'VIS-400',
+        type: 'CAR',
+        brand: 'Renault',
+        model: 'Duster',
+        color: 'Gray',
+        ownerId: visitorUser.id,
+      }
+    });
 
     console.log('✅ SYSTEM READY. SEED SUCCESSFUL.');
   } catch (error) {

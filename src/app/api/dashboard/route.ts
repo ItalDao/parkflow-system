@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
                     include: { vehicle: true },
                     take: 1,
                   },
-                  assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+                  assignedUser: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
                 },
               },
               _count: { select: { spaces: true } },
@@ -340,7 +340,7 @@ export async function GET(request: NextRequest) {
                     include: { vehicle: true },
                     take: 1,
                   },
-                      assignedUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+                      assignedUser: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
                 },
               },
               _count: { select: { spaces: true } },
@@ -1156,6 +1156,9 @@ export async function POST(request: NextRequest) {
       if (!parkingLot) return NextResponse.json({ error: 'No hay parqueadero configurado' }, { status: 400 });
 
       const ownerId = vehicle.ownerId ?? null;
+      const ownerRole = ownerId
+        ? (await prisma.user.findUnique({ where: { id: ownerId }, select: { role: true } }))?.role ?? null
+        : null;
 
       const assignedSpaceForOwner = ownerId
         ? await prisma.space.findFirst({ where: { assignedUserId: ownerId, zone: { parkingLotId: parkingLot.id } }, select: { id: true, status: true } })
@@ -1191,31 +1194,36 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'El espacio no está disponible' }, { status: 400 });
       }
 
-      const subscriptionEntry = await tryHandleSubscriptionEntry({
-        vehicleId: vehicle.id,
-        parkingLotId: parkingLot.id,
-        requestedSpaceId: effectiveSpaceId,
-        assignedSpaceId: assignedSpaceForOwner?.id ?? null,
-        reason: `Entrada por suscripción (${normalizedPlate})`,
-      }).catch((err) => {
-        console.error('Subscription entry error:', err);
-        return { handled: false } as const;
-      });
+      const canBypassWithSubscription = ownerRole !== 'VISITOR';
 
-      if (subscriptionEntry.handled) {
-        await createAuditLog(tokenUser.userId, 'SUBSCRIPTION_ENTRY', 'Subscription', subscriptionEntry.subscriptionId, {
+      if (canBypassWithSubscription) {
+        const subscriptionEntry = await tryHandleSubscriptionEntry({
           vehicleId: vehicle.id,
           parkingLotId: parkingLot.id,
-          spaceId: subscriptionEntry.spaceId,
+          requestedSpaceId: effectiveSpaceId,
+          assignedSpaceId: assignedSpaceForOwner?.id ?? null,
+          reason: `Entrada por suscripción (${normalizedPlate})`,
+        }).catch((err) => {
+          console.error('Subscription entry error:', err);
+          return { handled: false } as const;
         });
 
-        return NextResponse.json({
-          status: 'ok',
-          mode: 'subscription',
-          subscriptionId: subscriptionEntry.subscriptionId,
-          logId: subscriptionEntry.logId,
-          spaceId: subscriptionEntry.spaceId,
-        });
+        if (subscriptionEntry.handled) {
+          await createAuditLog(tokenUser.userId, 'SUBSCRIPTION_ENTRY', 'Subscription', subscriptionEntry.subscriptionId, {
+            vehicleId: vehicle.id,
+            parkingLotId: parkingLot.id,
+            spaceId: subscriptionEntry.spaceId,
+            ownerRole,
+          });
+
+          return NextResponse.json({
+            status: 'ok',
+            mode: 'subscription',
+            subscriptionId: subscriptionEntry.subscriptionId,
+            logId: subscriptionEntry.logId,
+            spaceId: subscriptionEntry.spaceId,
+          });
+        }
       }
 
       const ticketCode = `PKG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;

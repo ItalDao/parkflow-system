@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 
 interface Space {
   id: string; number: string; status: string;
-  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null } | null;
+  assignedUser?: { id: string; firstName: string; lastName: string; email?: string | null; role?: string | null } | null;
   tickets?: Array<{ id: string; ticketCode: string; entryTime: string; vehicle: { plate: string; type: string } }>;
 }
 
@@ -35,6 +35,21 @@ export default function DashboardPage() {
   const [entryForm, setEntryForm] = useState({ plate: '', vehicleType: 'CAR' });
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
+
+  const roleBadge = (role?: string | null) => {
+    switch (role) {
+      case 'RESIDENT':
+        return { label: 'Residente', color: '#1d4ed8', bg: 'rgba(37, 99, 235, 0.12)' };
+      case 'EMPLOYEE':
+        return { label: 'Empleado', color: '#0f766e', bg: 'rgba(15, 118, 110, 0.12)' };
+      case 'VISITOR':
+        return { label: 'Visitante', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.14)' };
+      case 'CUSTOMER':
+        return { label: 'Cliente', color: '#334155', bg: 'rgba(51, 65, 85, 0.12)' };
+      default:
+        return { label: role || 'Rol', color: 'var(--text-muted)', bg: 'rgba(148, 163, 184, 0.16)' };
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -200,7 +215,25 @@ export default function DashboardPage() {
                      <div style={{ width: '36px', height: '36px', border: '2px dashed #e2e8f0', borderRadius: '8px', background: space.status === 'RESERVED' ? 'rgba(233, 185, 73, 0.1)' : 'transparent' }} />
                    )}
                    <span style={{ fontSize: '13px', fontWeight: 900, color: isOccupied ? 'var(--text-primary)' : 'var(--text-muted)' }}>{space.number}</span>
-                   {ownerLabel && <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>{ownerLabel}</span>}
+                   {ownerLabel && (
+                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                       <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>{ownerLabel}</span>
+                       {space.assignedUser?.role && (
+                         <span
+                           style={{
+                             fontSize: '9px',
+                             fontWeight: 800,
+                             padding: '4px 10px',
+                             borderRadius: '999px',
+                             color: roleBadge(space.assignedUser.role).color,
+                             background: roleBadge(space.assignedUser.role).bg,
+                           }}
+                         >
+                           {roleBadge(space.assignedUser.role).label}
+                         </span>
+                       )}
+                     </div>
+                   )}
                  </div>
                );
              })}
@@ -248,6 +281,29 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
+                    {selectedSpace.assignedUser && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'white', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>Asignado a</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 900 }}>
+                          {selectedSpace.assignedUser.firstName} {selectedSpace.assignedUser.lastName}
+                          {selectedSpace.assignedUser.role && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                padding: '6px 12px',
+                                borderRadius: '999px',
+                                color: roleBadge(selectedSpace.assignedUser.role).color,
+                                background: roleBadge(selectedSpace.assignedUser.role).bg,
+                              }}
+                            >
+                              {roleBadge(selectedSpace.assignedUser.role).label}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
                     {activeTicket ? (
                       <>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '28px' }}>
@@ -283,7 +339,27 @@ export default function DashboardPage() {
                     ) : (
                       <div style={{ textAlign: 'center', padding: '20px 0' }}>
                         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '24px' }}>
-                          {selectedSpace.assignedUser ? `Reservado para ${selectedSpace.assignedUser.firstName} ${selectedSpace.assignedUser.lastName}.` : 'El espacio está libre para un nuevo vehículo.'}
+                          {selectedSpace.assignedUser
+                            ? (
+                              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                Reservado para {selectedSpace.assignedUser.firstName} {selectedSpace.assignedUser.lastName}
+                                {selectedSpace.assignedUser.role && (
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: 800,
+                                      padding: '6px 12px',
+                                      borderRadius: '999px',
+                                      color: roleBadge(selectedSpace.assignedUser.role).color,
+                                      background: roleBadge(selectedSpace.assignedUser.role).bg,
+                                    }}
+                                  >
+                                    {roleBadge(selectedSpace.assignedUser.role).label}
+                                  </span>
+                                )}
+                              </span>
+                            )
+                            : 'El espacio está libre para un nuevo vehículo.'}
                         </p>
                          <button 
                            onClick={() => setShowEntryModal(true)}
